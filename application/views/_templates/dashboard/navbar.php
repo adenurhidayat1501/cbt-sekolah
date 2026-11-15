@@ -7,10 +7,18 @@
         </li>
 
         <li class="nav-item d-flex align-items-center">
-            <span class="badge badge-light border px-3 py-2 text-dark font-weight-bold shadow-sm" style="font-size: 13px; border-radius: 9999px;">
-                <i class="fas fa-calendar-alt text-primary mr-1"></i>
-                TP: <?= isset($tp_active) ? $tp_active->tahun : "Belum di set" ?> &bull; Smt: <?= isset($smt_active) ? $smt_active->nama_smt : "Belum di set" ?>
-            </span>
+            <?php if ($this->ion_auth->is_admin()) : ?>
+                <a href="<?= base_url('datatahun') ?>" class="badge badge-light border px-3 py-2 text-dark font-weight-bold shadow-sm" style="font-size: 13px; border-radius: 9999px; text-decoration: none;" title="Klik untuk mengelola Tahun Pelajaran & Semester">
+                    <i class="fas fa-calendar-alt text-primary mr-1"></i>
+                    TP: <?= isset($tp_active) ? $tp_active->tahun : "Belum di set" ?> &bull; Smt: <?= isset($smt_active) ? $smt_active->nama_smt : "Belum di set" ?>
+                    <i class="fas fa-cog text-muted ml-1" style="font-size: 11px;"></i>
+                </a>
+            <?php else : ?>
+                <span class="badge badge-light border px-3 py-2 text-dark font-weight-bold shadow-sm" style="font-size: 13px; border-radius: 9999px;">
+                    <i class="fas fa-calendar-alt text-primary mr-1"></i>
+                    TP: <?= isset($tp_active) ? $tp_active->tahun : "Belum di set" ?> &bull; Smt: <?= isset($smt_active) ? $smt_active->nama_smt : "Belum di set" ?>
+                </span>
+            <?php endif; ?>
         </li>
 
         <!--

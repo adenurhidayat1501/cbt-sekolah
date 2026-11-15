@@ -366,17 +366,27 @@ class Dashboard extends CI_Controller {
 
     public function gantiTahun() {
         $aktif = $this->input->post('active', true);
+        if (!empty($aktif)) {
+            $this->db->update('master_tp', ['active' => 0]);
+            $this->db->where('id_tp', $aktif)->update('master_tp', ['active' => 1]);
+            $this->logging->saveLog(4, 'mengganti tahun ajaran aktif');
+            $this->output_json(['status' => true, 'msg' => 'Berhasil mengganti tahun pelajaran aktif']);
+            return;
+        }
+
         $tahuns = $this->input->post('tahun', true);
         $update = [];
 
         if (is_array($tahuns)) {
             $rows = count($tahuns);
-            for ($i = 0; $i < $rows; $i++) {
+            $start = isset($tahuns[0]) ? 0 : 1;
+            $end = isset($tahuns[0]) ? $rows : ($rows + 1);
+            for ($i = $start; $i < $end; $i++) {
                 $id_tp = $this->input->post('id_tp[' . $i . ']', true);
                 $tahun = $this->input->post('tahun[' . $i . ']', true);
 
                 if ($id_tp !== null && $id_tp !== '') {
-                    $active = ($id_tp === $aktif) ? 1 : 0;
+                    $active = ($id_tp == $aktif) ? 1 : 0;
                     $update[] = array(
                         'id_tp'     => $id_tp,
                         'tahun' 	=> $tahun,
@@ -397,6 +407,14 @@ class Dashboard extends CI_Controller {
 
     public function gantiSemester() {
         $aktif = $this->input->post('active', true);
+        if (!empty($aktif)) {
+            $this->db->update('master_smt', ['active' => 0]);
+            $this->db->where('id_smt', $aktif)->update('master_smt', ['active' => 1]);
+            $this->logging->saveLog(4, 'mengganti semester aktif');
+            $this->output_json(['status' => true, 'msg' => 'Berhasil mengganti semester aktif']);
+            return;
+        }
+
         $smts = $this->input->post('smt', true);
         $update = [];
 
@@ -410,7 +428,7 @@ class Dashboard extends CI_Controller {
                 $smt = $this->input->post('smt[' . $i . ']', true);
 
                 if ($id_smt !== null && $id_smt !== '') {
-                    $active = ($id_smt === $aktif) ? 1 : 0;
+                    $active = ($id_smt == $aktif) ? 1 : 0;
                     $update[] = array(
                         'id_smt'    => $id_smt,
                         'smt'       => $smt,

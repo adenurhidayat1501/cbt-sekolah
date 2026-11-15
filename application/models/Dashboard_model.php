@@ -103,6 +103,38 @@ class Dashboard_model extends CI_Model {
         return $result;
     }
 
+    public function getPrevTahun($id_tp = null) {
+        if ($id_tp === null) {
+            $active = $this->getTahunActive();
+            $id_tp = ($active && isset($active->id_tp)) ? $active->id_tp : null;
+        }
+        if (!$id_tp) {
+            return null;
+        }
+
+        $current = $this->getTahunById($id_tp);
+        if ($current && !empty($current->tahun)) {
+            $this->db->where('tahun <', $current->tahun);
+            $this->db->order_by('tahun', 'DESC');
+            $prev = $this->db->get('master_tp')->row();
+            if ($prev) {
+                return $prev;
+            }
+        }
+
+        $this->db->where('id_tp <', $id_tp);
+        $this->db->order_by('id_tp', 'DESC');
+        return $this->db->get('master_tp')->row();
+    }
+
+    public function getPrevTahunId($id_tp = null) {
+        $prev = $this->getPrevTahun($id_tp);
+        if ($prev && isset($prev->id_tp)) {
+            return (int)$prev->id_tp;
+        }
+        return max(1, (int)$id_tp - 1);
+    }
+
     public function getSemester() {
         $this->db->order_by('smt', 'ASC');
         $result = $this->db->get('master_smt')->result();
