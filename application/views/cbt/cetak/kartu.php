@@ -112,59 +112,57 @@
                                     </table>
                                     <table id="table-body" style="width:100%;border: 1px solid black">
                                         <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 9pt">
-                                            <td style="padding-top:8px;padding-left:22px;width: 35%">Nomor Peserta</td>
+                                            <td style="padding-top:8px;padding-left:14px;width: 30%">No. Peserta</td>
                                             <td style="padding-top:8px;">:</td>
-                                            <td style="padding-top:8px;width: 60%">0000.00.000</td>
+                                            <td style="padding-top:8px;width: 65%">0000.00.000</td>
                                         </tr>
                                         <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 9pt">
-                                            <td style="padding-left:22px">Nama</td>
+                                            <td style="padding-left:14px">Nama Siswa</td>
                                             <td>:</td>
-                                            <td>Nama Siswa</td>
+                                            <td><b>Nama Siswa</b></td>
                                         </tr>
                                         <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 9pt">
-                                            <td style="padding-left:22px;width: 35%">NIS/NISN</td>
+                                            <td style="padding-left:14px;width: 30%">NIS / NISN</td>
                                             <td>:</td>
-                                            <td>012334455</td>
+                                            <td>012334455 / 0012345678</td>
                                         </tr>
                                         <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 9pt">
-                                            <td style="padding-left:22px;width: 35%">Kelas</td>
+                                            <td style="padding-left:14px;width: 30%">Kelas - Ruang/Sesi</td>
                                             <td>:</td>
-                                            <td>IXA</td>
+                                            <td>IX-A - R.01 / Sesi 1</td>
                                         </tr>
-                                        <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 9pt">
-                                            <td style="padding-left:22px;width: 35%">Ruang/Sesi</td>
+                                        <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 8pt; color: #444;">
+                                            <td style="padding-left:14px;width: 30%">Login Siswa</td>
                                             <td>:</td>
-                                            <td>1/2</td>
-                                        </tr>
-                                        <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 9pt">
-                                            <td style="padding-left:22px;width: 35%">Username</td>
-                                            <td>:</td>
-                                            <td><b>umbk001</b></td>
-                                        </tr>
-                                        <tr style="line-height: 1; font-family: 'Times New Roman'; font-size: 9pt">
-                                            <td style="padding-left:22px;width: 35%">Password</td>
-                                            <td>:</td>
-                                            <td><b>umbk001</b></td>
+                                            <td><span style="color:#0f5132;font-weight:bold;"><i class="fas fa-qrcode mr-1"></i>Scan QR Code</span> <span class="text-muted">(Cadangan: umbk001 / umbk001)</span></td>
                                         </tr>
                                         <tr>
-                                            <td colspan="2"
-                                                style="padding-top: 6px; padding-bottom: 6px; padding-left:22px;width: 35%">
-                                                <div
-                                                        style="width: 60px; height: 70px; background: url('<?= base_url('assets/img/siswa.png') ?>') no-repeat center; background-size: cover; outline: 1px solid;"></div>
-                                            </td>
-                                            <td style="text-align: center;">
-                                                <div id="prev-tandatangan"
-                                                     style="font-family: 'Times New Roman'; font-size: 9pt; line-height: 1; background: url('<?= base_url() . $setting->tanda_tangan ?>') no-repeat center; background-size: 100px 60px">
-                                                    <span id="prev-kota"><?= $setting->kota ?></span>, <span
-                                                            id="prev-tanggal"><?= isset($kartu->tanggal) ? $kartu->tanggal : '' ?></span>
-                                                    <br>
-                                                    Kepala <?= $setting->satuan_pendidikan == '2' ? 'Madrasah' : 'Sekolah' ?>
-                                                    <br>
-                                                    <br>
-                                                    <br>
-                                                    <span id="prev-kepsek"><u><?= $setting->kepsek ?></u></span>
-                                                    <p id="prev-nip" style="margin-top: 4px; margin-bottom: 4px">NIP: <?= $setting_rapor != null && $setting_rapor->nip_kepsek == '1' ? $setting->nip : '-' ?></p>
-                                                </div>
+                                            <td colspan="3" style="padding: 4px 10px 4px 10px;">
+                                                <table style="width: 100%; border: none;">
+                                                    <tr>
+                                                        <td style="width: 65px; text-align: center; vertical-align: middle;">
+                                                            <div style="width: 55px; height: 65px; background: url('<?= base_url('assets/img/siswa.png') ?>') no-repeat center; background-size: cover; outline: 1px solid #777;"></div>
+                                                        </td>
+                                                        <td style="width: 90px; text-align: center; vertical-align: middle;">
+                                                            <div id="prev-qrcode" style="display:inline-block; padding: 2px; background: white; border: 1px solid #999; border-radius: 4px;"></div>
+                                                            <div style="font-family:'Times New Roman'; font-size: 6.5pt; font-weight:bold; letter-spacing: 0.5px; margin-top: 1px;">QR LOGIN SISWA</div>
+                                                        </td>
+                                                        <td style="text-align: center; vertical-align: top;">
+                                                            <div id="prev-tandatangan"
+                                                                 style="font-family: 'Times New Roman'; font-size: 8pt; line-height: 1.1; background: url('<?= base_url() . $setting->tanda_tangan ?>') no-repeat center; background-size: 90px 50px">
+                                                                <span id="prev-kota"><?= $setting->kota ?></span>, <span
+                                                                        id="prev-tanggal"><?= isset($kartu->tanggal) ? $kartu->tanggal : '' ?></span>
+                                                                <br>
+                                                                Kepala <?= $setting->satuan_pendidikan == '2' ? 'Madrasah' : 'Sekolah' ?>
+                                                                <br>
+                                                                <br>
+                                                                <br>
+                                                                <span id="prev-kepsek"><u><?= $setting->kepsek ?></u></span>
+                                                                <p id="prev-nip" style="margin-top: 2px; margin-bottom: 2px; font-size: 7.5pt;">NIP: <?= $setting_rapor != null && $setting_rapor->nip_kepsek == '1' ? $setting->nip : '-' ?></p>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </table>
                                             </td>
                                         </tr>
                                     </table>
@@ -249,6 +247,7 @@
 <script src="<?= base_url() ?>/assets/app/js/pdfobject.js"></script>
 <script>PDFObject.embed("/pdf/sample-3pp.pdf", "#example1");</script>
 -->
+<script src="<?= base_url() ?>/assets/plugins/qrcode/qrcode.min.js"></script>
 <script src="<?= base_url() ?>/assets/app/js/print-area.js"></script>
 <script>
     var oldVal1 = "<?= isset($kartu->header_1) ? $kartu->header_1 : "" ?>";
@@ -267,10 +266,115 @@
 
     var raporSetting = JSON.parse(JSON.stringify(<?= json_encode($setting_rapor) ?>));
     var nipKepsek = raporSetting != null && raporSetting.nip_kepsek === "1" ? nip : " -";
-    console.log('nip', nipKepsek)
 
     function submitKartu() {
         $('#set-kartu').submit();
+    }
+
+    function generateQrDataUri(qrText, size) {
+        size = size || 68;
+        var tempDiv = document.createElement("div");
+        new QRCode(tempDiv, {
+            text: qrText,
+            width: size,
+            height: size,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+        });
+        var canvas = tempDiv.querySelector("canvas");
+        if (canvas) {
+            return canvas.toDataURL("image/png");
+        }
+        var img = tempDiv.querySelector("img");
+        if (img && img.src) {
+            return img.src;
+        }
+        return "";
+    }
+
+    function renderSingleCard(item, ruang, sesi) {
+        var qrPayload = "CBTQR:" + btoa(unescape(encodeURIComponent(JSON.stringify({
+            u: item.username,
+            p: item.password,
+            nisn: item.nisn,
+            id: item.id_siswa
+        }))));
+        var qrImgUri = generateQrDataUri(qrPayload, 68);
+        var fotoSrc = (item.foto && item.foto !== '') ? (base_url + item.foto) : (base_url + 'assets/img/siswa.png');
+
+        return '<div style="display: flex; justify-content: center; align-items: center;">' +
+            '<div style="width: 10cm">' +
+            '<table id="table-header-print" style="width: 100%; border-top: 1px solid black; border-bottom: 0;border-left: 1px solid black; border-right: 1px solid black">' +
+            '<tr>' +
+            '<td style="width:20%;">' +
+            '<img id="prev-logo-kiri-print" src="' + logoKiri + '" style="width:55px; height:55px; margin-left: 6px; margin-right: 6px; margin-top:4px;">' +
+            '</td>' +
+            '<td style="width:60%; text-align: center;">' +
+            '<div style="line-height: 1.1; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal1 + '</div>' +
+            '<div class="text-center" style="line-height: 1.1; font-family: \'Times New Roman\'; font-size: 9pt"><b>' + oldVal2 + '</b></div>' +
+            '<div class="text-center" style="line-height: 1.2; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal3 + '</div>' +
+            '<div class="text-center" style="line-height: 1.2; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal4 + '</div>' +
+            '</td>' +
+            '<td style="width:20%;">' +
+            '<img id="prev-logo-kanan-print" src="' + logoKanan + '" style="width:55px; height:55px; margin-left: 6px; margin-right: 6px; margin-top:4px; border-style: none">' +
+            '</td>' +
+            '</tr>' +
+            '</table>' +
+            '<table id="table-body-print" style="width:100%;border: 1px solid black">' +
+            '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9.5pt">' +
+            '<td style="padding-top:4px;padding-left:14px;width: 28%">No. Peserta</td>' +
+            '<td style="padding-top:4px;">:</td>' +
+            '<td style="padding-top:4px;width: 70%"><b>' + (item.nomor_peserta || '-') + '</b></td>' +
+            '</tr>' +
+            '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
+            '<td style="padding-left:14px;width: 28%">Nama Siswa</td>' +
+            '<td>:</td>' +
+            '<td><b>' + item.nama + '</b></td>' +
+            '</tr>' +
+            '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 8.5pt">' +
+            '<td style="padding-left:14px;width: 28%">NIS / NISN</td>' +
+            '<td>:</td>' +
+            '<td>' + (item.nis || '-') + ' / ' + (item.nisn || '-') + '</td>' +
+            '</tr>' +
+            '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 8.5pt">' +
+            '<td style="padding-left:14px;width: 28%">Kelas - Ruang/Sesi</td>' +
+            '<td>:</td>' +
+            '<td>' + (item.nama_kelas || '-') + ' - ' + ruang + '/' + sesi + '</td>' +
+            '</tr>' +
+            '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 8pt; color: #444;">' +
+            '<td style="padding-left:14px;width: 28%">Login Siswa</td>' +
+            '<td>:</td>' +
+            '<td><span style="color:#0f5132;font-weight:bold;">Scan QR Code di bawah</span> (Cadangan: ' + item.username + ' / ' + item.password + ')</td>' +
+            '</tr>' +
+            '<tr>' +
+            '<td colspan="3" style="padding: 4px 10px 4px 10px;">' +
+            '<table style="width: 100%; border: none;">' +
+            '<tr>' +
+            '<td style="width: 65px; text-align: center; vertical-align: middle;">' +
+            '<img class="avatar" style="width: 55px; height: 65px; object-fit: cover; outline: 1px solid #777;" src="' + fotoSrc + '" />' +
+            '</td>' +
+            '<td style="width: 90px; text-align: center; vertical-align: middle;">' +
+            '<div style="display:inline-block; padding: 2px; background: white; border: 1px solid #999; border-radius: 4px;">' +
+            '<img src="' + qrImgUri + '" style="width: 68px; height: 68px; display: block;" alt="QR Code" />' +
+            '</div>' +
+            '<div style="font-family:\'Times New Roman\'; font-size: 6.5pt; font-weight:bold; letter-spacing: 0.5px; margin-top: 1px;">QR LOGIN SISWA</div>' +
+            '</td>' +
+            '<td style="text-align: center; vertical-align: top;">' +
+            '<div id="prev-tandatangan-print" style="font-family: \'Times New Roman\'; font-size: 8pt; line-height: 1.1; background: url(' + tandatangan + ') no-repeat center; background-size: 90px 50px;">' +
+            '<span>' + oldKota + '</span>, <span>' + oldTgl + '</span><br>' +
+            'Kepala ' + satuanPend + '<br><br><br>' +
+            '<span><b><u>' + kepsek + '</u></b></span>' +
+            '<p id="prev-nip" style="margin-top: 2px; margin-bottom: 2px; font-size: 7.5pt;">NIP: ' + nipKepsek + '</p>' +
+            '</div>' +
+            '</td>' +
+            '</tr>' +
+            '</table>' +
+            '</td>' +
+            '</tr>' +
+            '</table>' +
+            '</div>' +
+            '</div>';
     }
 
     function createPrintPreview(data) {
@@ -278,105 +382,19 @@
         if (data.length > 8) {
             var bagi2 = Math.round(data.length / 2);
             var pages = Math.round(bagi2 / 4);
-            //console.log('pages', pages);
             for (let a = 0; a < pages; a++) {
                 var card = '<div class="border my-shadow mb-3 pt-3 bg-white"><div class="pt-4" ' +
                     'style="display: flex;-webkit-justify-content: center;justify-content: center;background: white;width: 210mm; height: 297mm;padding: 1mm">';
 
                 var tds = [];
-                var kelas = printBy === 1 ? 'Kelas/Sesi' : 'Ruang/Sesi';
-
                 let t = a * 8;
                 let end = (a + 1) < pages ? t + 8 : data.length;
-                //console.log('t', t);
-                //console.log('end', end);
 
                 for (let i = t; i < end; i++) {
                     var setSiswa = data[i].set_siswa === '1';
                     var ruang = setSiswa ? data[i].ruang_kelas : data[i].kode_ruang;
                     var sesi = setSiswa ? data[i].sesi_kelas : data[i].kode_sesi;
-                    //var kelasVal = printBy === 1 ? data[i].nama_kelas : ruang;
-
-                    //var foto = data[i].foto == null || data[i].foto === '' ? 'siswa.png' : data[i].foto;
-                    //var foto = getFoto(data[i].foto);
-                    var td = '<div style="display: flex; justify-content: center; align-items: center;">' +
-                        '<div style="width: 10cm">' +
-                        '<table id="table-header-print" style="width: 100%; border-top: 1px solid black; border-bottom: 0;border-left: 1px solid black; border-right: 1px solid black">' +
-                        '<tr>' +
-                        '<td style="width:20%;">' +
-                        '<img id="prev-logo-kiri-print" src="' + logoKiri + '" style="width:55px; height:55px; margin-left: 6px; margin-right: 6px; margin-top:4px;">' +
-                        '</td>' +
-                        '<td style="width:60%; text-align: center;">' +
-                        '<div style="line-height: 1.1; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal1 + '</div>' +
-                        '<div class="text-center" style="line-height: 1.1; font-family: \'Times New Roman\'; font-size: 9pt"><b>' + oldVal2 + '</b></div>' +
-                        '<div class="text-center" style="line-height: 1.2; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal3 + '</div>' +
-                        '<div class="text-center" style="line-height: 1.2; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal4 + '</div>' +
-                        '</td>' +
-                        '<td style="width:20%;">' +
-                        '<img id="prev-logo-kanan-print" src="' + logoKanan + '" style="width:55px; height:55px; margin-left: 6px; margin-right: 6px; margin-top:4px; border-style: none">' +
-                        '</td>' +
-                        '</tr>' +
-                        '</table>' +
-                        '<table id="table-body-print" style="width:100%;border: 1px solid black">' +
-                        '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 10pt">' +
-                        '<td style="padding-top:4px;padding-left:22px;width: 30%">No. Peserta</td>' +
-                        '<td style="padding-top:4px;">:</td>' +
-                        '<td style="padding-top:4px;width: 65%">' + data[i].nomor_peserta + '</td>' +
-                        '</tr>' +
-                        '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                        '<td style="padding-left:22px;width: 30%">Nama</td>' +
-                        '<td>:</td>' +
-                        '<td><b>' + data[i].nama + '</b></td>' +
-                        '</tr>' +
-                        '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                        '<td style="padding-left:22px;width: 30%">NIS / NISN</td>' +
-                        '<td>:</td>' +
-                        '<td>' + data[i].nis + '/' + data[i].nisn + '</td>' +
-                        '</tr>' +
-                        '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                        '<td style="padding-left:22px;width: 30%">Kelas</td>' +
-                        '<td>:</td>' +
-                        '<td>' + data[i].nama_kelas + '</td>' +
-                        '</tr>' +
-                        '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                        '<td style="padding-left:22px;width: 30%">Ruang/Sesi</td>' +
-                        '<td>:</td>' +
-                        '<td>' + ruang + '/' + sesi + '</td>' +
-                        '</tr>' +
-                        '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                        '<td style="padding-left:22px;width: 30%">Username</td>' +
-                        '<td>:</td>' +
-                        '<td><b>' + data[i].username + '</b></td>' +
-                        '</tr>' +
-                        '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                        '<td style="padding-left:22px;width: 30%">Password</td>' +
-                        '<td>:</td>' +
-                        '<td><b>' + data[i].password + '</b></td>' +
-                        '</tr>' +
-                        '<tr>' +
-                        '<td colspan="2" style="padding-top: 6px; padding-bottom: 6px; padding-left:22px;width: 35%">' +
-                        '<img class="avatar" style="width: 60px; height: 70px; object-fit: cover;object-position: center; ' +
-                        'outline: 1px solid;" ' +
-                        'src= "' + base_url + data[i].foto + '"' +
-                        '/>' +
-                        '</td>' +
-                        '<td style="text-align: center;">' +
-                        '<div id="prev-tandatangan-print" style="font-family: \'Times New Roman\'; font-size: 9pt; line-height: 1; background: url(' + tandatangan + ') no-repeat center; background-size: 100px 60px">' +
-                        '<span>' + oldKota + '</span>, <span>' + oldTgl + '</span>' +
-                        '<br>Kepala ' + satuanPend +
-                        '<br>' +
-                        '<br>' +
-                        '<br>' +
-                        '<span>' + kepsek + '</span>' +
-                        '<p id="prev-nip" style="margin-top: 4px; margin-bottom: 4px">NIP: '+nipKepsek+'</p>' +
-                        '</div>' +
-                        '</td>' +
-                        '</tr>' +
-                        '</table>' +
-                        '</div>' +
-                        '</div>';
-
-                    tds.push(td);
+                    tds.push(renderSingleCard(data[i], ruang, sesi));
                 }
                 var table = '<table>';
                 for (let j = 0; j < tds.length; j++) {
@@ -398,88 +416,7 @@
                 var setSiswa = data[i].set_siswa === '1';
                 var ruang = setSiswa ? data[i].ruang_kelas : data[i].kode_ruang;
                 var sesi = setSiswa ? data[i].sesi_kelas : data[i].kode_sesi;
-                //var kelasVal = printBy === 1 ? data[i].nama_kelas : ruang;
-
-                //var foto = data[i].foto == null || data[i].foto === '' ? 'siswa.png' : data[i].foto;
-                //var foto = getFoto(data[i].foto);
-                var td = '<div style="display: flex; justify-content: center; align-items: center;">' +
-                    '<div style="width: 10cm">' +
-                    '<table id="table-header-print" style="width: 100%; border-top: 1px solid black; border-bottom: 0;border-left: 1px solid black; border-right: 1px solid black">' +
-                    '<tr>' +
-                    '<td style="width:20%;">' +
-                    '<img id="prev-logo-kiri-print" src="' + logoKiri + '" style="width:55px; height:55px; margin-left: 6px; margin-right: 6px; margin-top:4px;">' +
-                    '</td>' +
-                    '<td style="width:60%; text-align: center;">' +
-                    '<div style="line-height: 1.1; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal1 + '</div>' +
-                    '<div class="text-center" style="line-height: 1.1; font-family: \'Times New Roman\'; font-size: 9pt"><b>' + oldVal2 + '</b></div>' +
-                    '<div class="text-center" style="line-height: 1.2; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal3 + '</div>' +
-                    '<div class="text-center" style="line-height: 1.2; font-family: \'Times New Roman\'; font-size: 8pt">' + oldVal4 + '</div>' +
-                    '</td>' +
-                    '<td style="width:20%;">' +
-                    '<img id="prev-logo-kanan-print" src="' + logoKanan + '" style="width:55px; height:55px; margin-left: 6px; margin-right: 6px; margin-top:4px; border-style: none">' +
-                    '</td>' +
-                    '</tr>' +
-                    '</table>' +
-                    '<table id="table-body-print" style="width:100%;border: 1px solid black">' +
-                    '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 10pt">' +
-                    '<td style="padding-top:4px;padding-left:22px;width: 30%">No. Peserta</td>' +
-                    '<td style="padding-top:4px;">:</td>' +
-                    '<td style="padding-top:4px;width: 65%">' + data[i].nomor_peserta + '</td>' +
-                    '</tr>' +
-                    '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                    '<td style="padding-left:22px;width: 30%">Nama</td>' +
-                    '<td>:</td>' +
-                    '<td>' + data[i].nama + '</td>' +
-                    '</tr>' +
-                    '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                    '<td style="padding-left:22px;width: 30%">NIS / NISN</td>' +
-                    '<td>:</td>' +
-                    '<td>' + data[i].nis + '/' + data[i].nisn + '</td>' +
-                    '</tr>' +
-                    '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                    '<td style="padding-left:22px;width: 30%">Kelas</td>' +
-                    '<td>:</td>' +
-                    '<td>' + data[i].nama_kelas + '</td>' +
-                    '</tr>' +
-                    '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                    '<td style="padding-left:22px;width: 30%">Ruang/Sesi</td>' +
-                    '<td>:</td>' +
-                    '<td>' + ruang + '/' + sesi + '</td>' +
-                    '</tr>' +
-                    '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                    '<td style="padding-left:22px;width: 30%">Username</td>' +
-                    '<td>:</td>' +
-                    '<td>' + data[i].username + '</td>' +
-                    '</tr>' +
-                    '<tr style="line-height: 1; font-family: \'Times New Roman\'; font-size: 9pt">' +
-                    '<td style="padding-left:22px;width: 30%">Password</td>' +
-                    '<td>:</td>' +
-                    '<td>' + data[i].password + '</td>' +
-                    '</tr>' +
-                    '<tr>' +
-                    '<td colspan="2" style="padding-top: 6px; padding-bottom: 6px; padding-left:22px;width: 35%">' +
-                    '<img class="avatar" style="width: 60px; height: 70px; object-fit: cover;object-position: center; ' +
-                    'outline: 1px solid;" ' +
-                    'src= "' + base_url + data[i].foto + '"' +
-                    '/>' +
-                    '</td>' +
-                    '<td style="text-align: center;">' +
-                    '<div id="prev-tandatangan-print" style="font-family: \'Times New Roman\'; font-size: 9pt; line-height: 1; background: url(' + tandatangan + ') no-repeat center; background-size: 100px 60px">' +
-                    '<span>' + oldKota + '</span>, <span>' + oldTgl + '</span>' +
-                    '<br>Kepala ' + satuanPend +
-                    '<br>' +
-                    '<br>' +
-                    '<br>' +
-                    '<span>' + kepsek + '</span>' +
-                    '<p id="prev-nip" style="margin-top: 4px; margin-bottom: 4px">NIP: '+nipKepsek+'</p>' +
-                    '</div>' +
-                    '</td>' +
-                    '</tr>' +
-                    '</table>' +
-                    '</div>' +
-                    '</div>';
-
-                tds.push(td);
+                tds.push(renderSingleCard(data[i], ruang, sesi));
             }
             var table = '<table>';
             for (let j = 0; j < tds.length; j++) {
@@ -503,12 +440,21 @@
                 $(this).on("error", function () {
                     $(this).attr("src", base_url + 'assets/img/siswa.png');
                 });
-
             });
         });
     }
 
     $(document).ready(function () {
+        // Render sample preview QR Code in top card
+        var sampleQrPayload = "CBTQR:" + btoa(JSON.stringify({u: "umbk001", p: "umbk001", id: "1"}));
+        new QRCode(document.getElementById("prev-qrcode"), {
+            text: sampleQrPayload,
+            width: 68,
+            height: 68,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+        });
         $("#header-1").on("change keyup paste", function () {
             var currentVal = $(this).val();
             if (currentVal === oldVal1) {

@@ -192,7 +192,9 @@ $config['csrf_regenerate'] = FALSE;
 $config['csrf_exclude_uris'] = array(
     'kelasmateri/saveMateri',
     'kelasmateri/uploadfile',
-    'kelasmateri/deletefile'
+    'kelasmateri/deletefile',
+    'auth/cek_login_qr',
+    'auth/qr_login'
 );
 
 /*

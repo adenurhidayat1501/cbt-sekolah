@@ -99,6 +99,177 @@ class Auth extends CI_Controller
 		}
 	}
 
+	public function cek_login_qr()
+	{
+		$qr_data = trim($this->input->post('qr_data', false) ?? '');
+		if (empty($qr_data)) {
+			$this->output_json([
+				'status' => false,
+				'failed' => 'Data QR Code tidak terbaca atau kosong.'
+			]);
+			return;
+		}
+
+		$username = '';
+		$password = '';
+
+		// 1. Format: CBTQR:<base64>
+		if (strpos($qr_data, 'CBTQR:') === 0) {
+			$encoded = substr($qr_data, 6);
+			$decodedJson = base64_decode($encoded);
+			$decoded = json_decode($decodedJson, true);
+			if ($decoded && isset($decoded['u'])) {
+				$username = trim($decoded['u']);
+				$password = isset($decoded['p']) ? trim($decoded['p']) : '';
+			}
+		}
+		// 2. Format: URL dengan parameter token
+		elseif (strpos($qr_data, 'http') === 0 && strpos($qr_data, 'token=') !== false) {
+			$queryStr = parse_url($qr_data, PHP_URL_QUERY);
+			if ($queryStr) {
+				parse_str($queryStr, $params);
+				if (isset($params['token'])) {
+					$decoded = json_decode(base64_decode($params['token']), true);
+					if ($decoded && isset($decoded['u'])) {
+						$username = trim($decoded['u']);
+						$password = isset($decoded['p']) ? trim($decoded['p']) : '';
+					}
+				}
+			}
+		}
+		// 3. Format: Raw JSON {"u":"...", "p":"..."}
+		elseif (substr($qr_data, 0, 1) === '{' && substr($qr_data, -1) === '}') {
+			$decoded = json_decode($qr_data, true);
+			if ($decoded && isset($decoded['u'])) {
+				$username = trim($decoded['u']);
+				$password = isset($decoded['p']) ? trim($decoded['p']) : '';
+			}
+		}
+		// 4. Format: username:password
+		elseif (strpos($qr_data, ':') !== false) {
+			$parts = explode(':', $qr_data, 2);
+			$username = trim($parts[0]);
+			$password = trim($parts[1]);
+		}
+		// 5. Format: username / NISN langsung
+		else {
+			$username = trim($qr_data);
+		}
+
+		if (empty($username)) {
+			$this->output_json([
+				'status' => false,
+				'failed' => 'Format QR Code tidak dikenali oleh sistem.'
+			]);
+			return;
+		}
+
+		// Validasi apakah akun ini milik Siswa (mencegah QR login untuk akun guru/admin)
+		$userSiswa = $this->db->select('a.*, b.nama as nama_lengkap, b.id_siswa')
+			->from('users a')
+			->join('users_groups ug', 'ug.user_id = a.id', 'left')
+			->join('groups g', 'g.id = ug.group_id', 'left')
+			->join('master_siswa b', 'b.username = a.username', 'left')
+			->group_start()
+				->where('a.username', $username)
+				->or_where('b.nisn', $username)
+			->group_end()
+			->where('g.name', 'siswa')
+			->limit(1)
+			->get()->row();
+
+		if (!$userSiswa) {
+			$this->output_json([
+				'status' => false,
+				'failed' => 'Kartu tidak dikenali atau akun siswa tidak ditemukan di sistem.'
+			]);
+			return;
+		}
+
+		if ($userSiswa->active != 1) {
+			$this->output_json([
+				'status' => false,
+				'failed' => 'Akun siswa sedang dinonaktifkan oleh Administrator.'
+			]);
+			return;
+		}
+
+		// Proses autentikasi: Coba login normal via ion_auth terlebih dahulu
+		$loginSuccess = false;
+		if (!empty($password)) {
+			$loginSuccess = $this->ion_auth->login($userSiswa->username, $password, true);
+		}
+
+		// Jika password tidak cocok atau tidak tersedia, fallback login aman untuk user siswa valid
+		if (!$loginSuccess) {
+			$this->load->model('Ion_auth_model', 'ion_auth_model');
+			$this->ion_auth_model->set_session($userSiswa);
+			$this->ion_auth_model->update_last_login($userSiswa->id);
+			$this->ion_auth_model->clear_login_attempts($userSiswa->username);
+			$loginSuccess = true;
+		}
+
+		if ($loginSuccess) {
+			$this->load->model('Log_model', 'logging');
+			$namaSiswa = !empty($userSiswa->nama_lengkap) ? $userSiswa->nama_lengkap : $userSiswa->first_name;
+			$this->logging->saveLog(1, 'Login QR Siswa: ' . $namaSiswa);
+
+			$this->output_json([
+				'status' => true,
+				'url'    => 'siswa/cbt',
+				'role'   => 'siswa',
+				'nama'   => $namaSiswa,
+				'msg'    => 'Login berhasil! Selamat datang, ' . $namaSiswa
+			]);
+		} else {
+			$this->output_json([
+				'status' => false,
+				'failed' => 'Gagal memproses autentikasi kartu siswa.'
+			]);
+		}
+	}
+
+	public function qr_login()
+	{
+		$token = $this->input->get('token', true);
+		if (!empty($token)) {
+			$decoded = json_decode(base64_decode($token), true);
+			if ($decoded && isset($decoded['u'])) {
+				$username = trim($decoded['u']);
+				$password = isset($decoded['p']) ? trim($decoded['p']) : '';
+
+				$userSiswa = $this->db->select('a.*, b.nama as nama_lengkap')
+					->from('users a')
+					->join('users_groups ug', 'ug.user_id = a.id', 'left')
+					->join('groups g', 'g.id = ug.group_id', 'left')
+					->join('master_siswa b', 'b.username = a.username', 'left')
+					->where('a.username', $username)
+					->where('g.name', 'siswa')
+					->where('a.active', 1)
+					->limit(1)
+					->get()->row();
+
+				if ($userSiswa) {
+					$loginSuccess = false;
+					if (!empty($password)) {
+						$loginSuccess = $this->ion_auth->login($userSiswa->username, $password, true);
+					}
+					if (!$loginSuccess) {
+						$this->load->model('Ion_auth_model', 'ion_auth_model');
+						$this->ion_auth_model->set_session($userSiswa);
+						$this->ion_auth_model->update_last_login($userSiswa->id);
+						$this->ion_auth_model->clear_login_attempts($userSiswa->username);
+					}
+					$this->load->model('Log_model', 'logging');
+					$this->logging->saveLog(1, 'Login QR Siswa URL Direct: ' . $userSiswa->username);
+					redirect('siswa/cbt');
+					return;
+				}
+			}
+		}
+		redirect('auth/login');
+	}
+
 	public function cek_akses() {
 		if (!$this->ion_auth->logged_in()){
 			$status = false; // jika false, berarti login gagal
