@@ -20,6 +20,7 @@ class Core {
     function write_db_config($data) {
         $template_path = '../assets/app/db/database.php';
         $output_path = '../application/config/database.php';
+        $env_path = '../.env';
 
         $database_file = file_get_contents($template_path);
 
@@ -32,12 +33,15 @@ class Core {
         @chmod($output_path, 0777);
 
         if (is_writable(dirname($output_path))) {
+            $written = fwrite($handle, $new);
+            fclose($handle);
 
-            if (fwrite($handle, $new)) {
-                return true;
-            } else {
-                return false;
-            }
+            // Also write or update .env for seamless database access
+            $env_content = "CI_ENV=production\nDB_HOST={$data['hostname']}\nDB_USER={$data['username']}\nDB_PASS={$data['password']}\nDB_NAME={$data['database']}\n";
+            @file_put_contents($env_path, $env_content);
+            @chmod($env_path, 0644);
+
+            return $written !== false;
         } else {
             return false;
         }

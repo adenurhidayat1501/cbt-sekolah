@@ -149,6 +149,26 @@ if (!isset($view_folder[0]) && is_dir(APPPATH . 'views' . DIRECTORY_SEPARATOR)) 
 define('VIEWPATH', $view_folder . DIRECTORY_SEPARATOR);
 //require_once BASEPATH . 'core/CodeIgniter.php';
 
+// Auto-load .env environment file if present for easy database configuration
+$env_file = dirname(__FILE__) . DIRECTORY_SEPARATOR . '.env';
+if (file_exists($env_file)) {
+    $lines = file($env_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || strpos($line, '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value, " \t\n\r\0\x0B\"'");
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv("{$name}={$value}");
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
 $db = [];
 include 'application/config/database.php';
 $database = isset($db['default']['database']) ? $db['default']['database'] : '';
@@ -161,12 +181,13 @@ if (empty($database)) {
     }
 } else {
     $data = isset($db['default']) ? $db['default'] : [];
-    $mysqli = @new mysqli($data['hostname'], $data['username'], $data['password'], $data['database']);
+    $db_port = isset($data['port']) && !empty($data['port']) ? (int)$data['port'] : 3306;
+    $mysqli = @new mysqli($data['hostname'], $data['username'], $data['password'], $data['database'], $db_port);
     if ($mysqli->connect_errno) {
         if (!is_dir('installer')) {
             die("<h3>Gagal Terhubung ke Database MySQL/MariaDB</h3>"
                 . "<p><b>Error:</b> " . htmlspecialchars($mysqli->connect_error) . "</p>"
-                . "<p>Pastikan user dan password database di <code>application/config/database.php</code> sudah sesuai dengan MariaDB di VPS.</p>");
+                . "<p>Pastikan host, user, dan password database di <code>application/config/database.php</code> atau <code>.env</code> sudah sesuai.</p>");
         } else {
             $mysqli->close();
             header("Location: installer");

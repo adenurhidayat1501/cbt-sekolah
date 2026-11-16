@@ -137,7 +137,10 @@ echo Sekarang untuk install di VPS Anda, cukup jalankan di VPS (SSH):
 echo.
 echo    git clone %REPO_URL% /var/www/saduci_cbt
 echo    cd /var/www/saduci_cbt
-echo    sudo bash install-vps.sh -y
+echo    sudo bash install-vps.sh
+echo.
+echo    * Tips: Gunakan 'sudo bash install-vps.sh' untuk menu interaktif (kustom DB & pembersihan lama).
+echo    * Tips: Gunakan 'sudo bash install-vps.sh -y' untuk instalasi otomatis 1-klik langsung jadi.
 echo.
 echo ======================================================================
 echo.
