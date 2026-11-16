@@ -21,6 +21,8 @@ uploads/*
 !uploads/foto_siswa/
 !uploads/foto_guru/
 !uploads/bank_soal/
+!uploads/import/
+!uploads/import/**
 
 # Dependencies
 /vendor/
