@@ -194,7 +194,9 @@ $config['csrf_exclude_uris'] = array(
     'kelasmateri/uploadfile',
     'kelasmateri/deletefile',
     'auth/cek_login_qr',
-    'auth/qr_login'
+    'auth/qr_login',
+    'cbtwa/.*',
+    'cbtlive/.*'
 );
 
 /*

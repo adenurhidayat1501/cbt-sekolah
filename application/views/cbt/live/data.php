@@ -423,6 +423,9 @@ defined('BASEPATH') or exit('No direct script access allowed');
      =================================================================== -->
 <script>
 $(document).ready(function () {
+    if (typeof ajaxcsrf === 'function') {
+        ajaxcsrf();
+    }
     let liveTimer = null;
     let systemTimer = null;
     let isFetchingLive = false;

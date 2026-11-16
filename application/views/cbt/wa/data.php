@@ -229,7 +229,8 @@ $has_group = !empty($wa_setting->target_group);
                         <div class="tab-pane fade" id="tab-setting" role="tabpanel">
                             <div class="row">
                                 <div class="col-12 col-lg-7 mb-4">
-                                    <form id="form-wa-setting">
+                                    <?= form_open('', ['id' => 'form-wa-setting']) ?>
+                                        <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
                                         <div class="form-group">
                                             <label class="font-weight-bold">
                                                 <i class="fas fa-key text-warning mr-1"></i>Token API Fonnte <span class="text-danger">*</span>
@@ -283,7 +284,7 @@ $has_group = !empty($wa_setting->target_group);
                                                 <i class="fab fa-whatsapp mr-1"></i>Kirim Pesan Tes
                                             </button>
                                         </div>
-                                    </form>
+                                    <?= form_close() ?>
                                 </div>
 
                                 <!-- Box Webhook URL & Panduan -->
@@ -498,6 +499,9 @@ $has_group = !empty($wa_setting->target_group);
      =================================================================== -->
 <script>
 $(document).ready(function () {
+    if (typeof ajaxcsrf === 'function') {
+        ajaxcsrf();
+    }
     $('.select2').select2({ theme: 'bootstrap4' });
 
     // Tarik Daftar Grup WA dari Fonnte
@@ -589,9 +593,15 @@ $(document).ready(function () {
                     Swal.fire('Gagal!', res.message, 'error');
                 }
             },
-            error: function () {
+            error: function (xhr) {
                 btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Pengaturan');
-                Swal.fire('Error!', 'Terjadi kesalahan pada server', 'error');
+                let errText = 'Terjadi kesalahan pada server';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errText = xhr.responseJSON.message;
+                } else if (xhr.status === 403) {
+                    errText = 'Token sesi/keamanan (CSRF) kedaluwarsa. Silakan refresh halaman dan coba lagi.';
+                }
+                Swal.fire('Error (' + xhr.status + ')', errText, 'error');
             }
         });
     });
