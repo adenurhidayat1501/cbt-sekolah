@@ -77,6 +77,7 @@
                         {'name':"Jadwal", 'link':"cbtjadwal", 'icon': 'far fa-calendar-alt'},
                         {'name': 'Cetak', 'link':"cbtcetak", 'icon': 'fa fa-print'},
                         {'name': 'Status Siswa', 'link':"cbtstatus", 'icon': 'fa fa-user-clock'},
+                        {'name': 'Live Monitor Ujian', 'link':"cbtlive", 'icon': 'fas fa-satellite-dish text-danger', 'badge': 'LIVE'},
                         {'name': 'Hasil Ujian', 'link':"cbtnilai", 'icon': 'fa fa-file-alt'},
                         {'name': 'Analisis Soal', 'link':"cbtanalisis", 'icon': 'fa fa-chart-line'},
                         {'name': 'Rekap Nilai', 'link':"cbtrekap", 'icon': 'fas fa-trophy'},
@@ -158,11 +159,12 @@
                         <p>${menu.name}<i class="fas fa-angle-left right"></i></p>
                     </a><ul class="nav nav-treeview">`;
                     menu.submenu.forEach(function (sub) {
+                        var badgeHtml = sub.badge ? ` <span class="badge badge-danger right ml-1">${sub.badge}</span>` : '';
                         htmlMenu += `<li class="nav-item">
                             <a href="${base_url + sub.link}"
                                class="nav-link ${page+'/'+pageact === sub.link || page === sub.link ? "active" : ""}">
                                 <i class="${sub.icon} nav-icon"></i>
-                                <p>${sub.name}</p>
+                                <p>${sub.name}${badgeHtml}</p>
                             </a>
                         </li>`;
                     })

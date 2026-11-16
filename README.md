@@ -21,7 +21,15 @@ Aplikasi **SADUCI CBT (SMP Negeri Satu Atap 2 Cipatujah, Kab. Tasikmalaya)** ber
    - Sanitasi upload file dengan whitelist ekstensi ketat & perisai `.htaccess` anti eksekusi PHP pada folder `uploads/` dan `backups/`.
    - Pencegahan celah *path traversal* pada penghapusan berkas database dan foto.
    - Pengamanan installer dan update route dari akses tanpa otentikasi.
-3. **Penyebaran Otomatis di VPS (Clean Slate & Custom Database)**
+   - Mesin *Anti-Cheat Engine* (deteksi blur window / ganti tab 3x toleransi & auto-watermark NISN).
+3. **Live Real-Time Exam & Server Monitoring (`cbtlive`)**
+   - **Menu Live Monitor Ujian**: Akses melalui menu *PELAKSANAAN -> Live Monitor Ujian* (dengan badge merah berkedip `LIVE`).
+   - **Pemilihan Jadwal Hari Ini & Kelas**: Otomatis memprioritaskan jadwal ujian aktif hari ini dan dapat difilter per kelas.
+   - **Data Pengawas Ujian**: Menampilkan informasi lengkap guru pengawas (nama & NIP), ruang, dan sesi ujian.
+   - **Real-Time Student Progress**: Menampilkan status siswa (Sedang Mengerjakan [Hijau Berkedip], Selesai [Biru], Belum Mulai [Abu-abu], Terkunci/Perlu Reset [Merah]), progres soal terjawab (misal: 25/30 Soal - 83%), sisa waktu ujian, IP address, dan perangkat.
+   - **1-Click Quick Actions**: Buka kunci login siswa seketika (1-click Reset Login) dan 1-click Paksa Selesai, serta dukungan aksi massal (Bulk Action).
+   - **Monitor Sistem & Resource Server**: Widget CPU load (1m/5m/15m & %), RAM usage (GB & %), MariaDB active threads, live concurrent students counter, sisa kapasitas disk, dan server clock synchronization.
+4. **Penyebaran Otomatis di VPS (Clean Slate & Custom Database)**
    - **Pembersihan Project Lama**: Otomatis menghapus project lama di `/var/www` dan me-reset VirtualHost Apache lama sebelum setup agar tidak bentrok.
    - **Kustomisasi Database Gampang**: Mendukung kustomisasi nama DB, user, password, dan port, serta integrasi file `.env` untuk kemudahan perubahan konfigurasi kapan saja.
    - Skrip `install-vps.sh` untuk instalasi mandiri Apache, MariaDB, PHP, ekstensi, permissions, VirtualHost, dan database dalam 1 perintah.
