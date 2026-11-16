@@ -182,11 +182,67 @@ sudo systemctl restart apache2
 
 ---
 
+## 🔄 Pembaruan Aplikasi di VPS (1-Klik via `update.sh`)
+
+Setiap kali Anda selesai memperbarui kode di GitHub (melalui `push-to-github.bat`), cukup jalankan 1 perintah di terminal VPS:
+
+```bash
+cd /var/www/saduci_cbt
+sudo bash update.sh
+```
+
+> **Apa yang dikerjakan otomatis oleh `update.sh`?**
+> - Mengambil commit terbaru dari GitHub (`git reset --hard origin/main`).
+> - Menjaga file `.env`, database, dan berkas `uploads/` tetap utuh.
+> - Mengatur permission `775 www-data` pada folder penting secara otomatis.
+> - Membersihkan cache CodeIgniter.
+> - Me-reload Apache secara aman tanpa memutus koneksi siswa yang sedang ujian.
+
+---
+
+## 💾 Pencadangan Otomatis Database (`backup-db.sh`)
+
+Untuk menjaga seluruh bank soal dan nilai siswa tetap aman:
+
+### A. Pencadangan Manual Instan:
+```bash
+sudo bash /var/www/saduci_cbt/backup-db.sh
+```
+*Cadangan disimpan dalam format terkompresi `.sql.gz` di folder `/var/www/saduci_cbt/backups/daily/`.*
+
+### B. Pasang Jadwal Backup Otomatis Harian (Setiap 23:00 WIB):
+```bash
+sudo bash /var/www/saduci_cbt/backup-db.sh --cron
+```
+*Sistem otomatis membuat backup setiap malam dan menghapus cadangan lama yang berusia lebih dari 7 hari.*
+
+---
+
+## 🛡️ Fitur Integritas Ujian & Anti-Kecurangan Baru
+
+1. **Deteksi Pindah Tab (Toleransi 3x)**:
+   - Memonitor jika siswa membuka tab lain, browser lain, atau meminimalkan layar.
+   - Peringatan bertingkat interaktif (Pelanggaran ke-1, 2, dan 3). Jika batas 3x terlampaui, halaman ujian otomatis terkunci dan harus dibuka oleh pengawas.
+2. **Perisai Layar (*Screen Shield*)**:
+   - Blokir klik kanan, text selection, shortcut `Ctrl+C`, `Ctrl+V`, `Ctrl+U`, `F12`, dan `PrintScreen`.
+3. **Watermark Dinamis Transparan**:
+   - Menampilkan Nama & NISN siswa berulang secara diagonal di belakang teks soal. Memotret layar dengan kamera ponsel lain akan langsung menampakkan identitas siswa.
+4. **Ketahanan Offline (*LocalStorage Dual-Save*)**:
+   - Setiap jawaban yang diklik siswa disimpan ganda: di server database dan di browser HP siswa.
+   - Jika sinyal WiFi sekolah mendadak terputus, jawaban ditampung dan dikirimkan otomatis (*auto-sync*) begitu internet kembali terhubung.
+
+---
+
 ## 📁 Struktur Berkas Penting
 
 ```
 ├── .env                   # File konfigurasi database & environment (mudah diubah)
 ├── db_credentials.txt     # Catatan kredensial database setelah instalasi VPS
+├── update.sh              # Skrip 1-klik pembaruan aplikasi di VPS dari GitHub
+├── backup-db.sh           # Skrip pencadangan otomatis database harian
+├── install-vps.sh         # Script otomatis instalasi VPS (Clean Slate & Custom DB)
+├── push-to-github.bat     # Helper upload ke GitHub untuk Windows
+├── push-to-github.sh      # Helper upload ke GitHub untuk Linux/macOS
 ├── application/           # Logika aplikasi CodeIgniter 3 (Controllers, Models, Views)
 │   ├── config/            # Konfigurasi database.php, config.php, routes.php
 │   └── views/             # Template UI modern (Login, Siswa CBT, AdminLTE)
@@ -198,10 +254,8 @@ sudo systemctl restart apache2
 │   └── img/
 │       └── saduci_logo.png# Logo resmi SMPN Satu Atap 2 Cipatujah
 ├── backups/               # Direktori cadangan database (terlindungi .htaccess)
-├── uploads/               # Direktori upload media & foto (terlindungi .htaccess)
-├── install-vps.sh         # Script otomatis VPS (Clean Slate & Custom Database)
-├── push-to-github.bat     # Helper upload ke GitHub untuk Windows
-├── push-to-github.sh      # Helper upload ke GitHub untuk Linux/macOS
+│   └── daily/             # Folder arsip otomatis harian (.sql.gz)
+├── uploads/               # Direktori upload media & format template excel
 ├── Dockerfile             # Definisi container image PHP Apache
 ├── docker-compose.yml     # Konfigurasi container App + MariaDB
 └── .gitignore             # Standar filter berkas Git

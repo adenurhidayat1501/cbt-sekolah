@@ -993,3 +993,126 @@ body {
 #qr-camera-reader video {
     border-radius: 12px;
 }
+
+/* ==========================================================================
+   EXAM ANTI-CHEAT & RESILIENCE STYLES
+   ========================================================================== */
+
+/* Dynamic Watermark on Exam Area */
+.exam-container-relative {
+    position: relative;
+    overflow: hidden;
+}
+
+.exam-watermark-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+    opacity: 0.06;
+    user-select: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: space-around;
+    justify-content: space-around;
+}
+
+.exam-watermark-text {
+    transform: rotate(-30deg);
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    padding: 24px 32px;
+    letter-spacing: 0.05em;
+}
+
+/* Network Status Indicator */
+.network-status-pill {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 6px 12px;
+    border-radius: var(--cbt-radius-full);
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.network-online {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.network-offline {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    animation: pulseOffline 1.5s infinite;
+}
+
+@keyframes pulseOffline {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Font Size Scaling */
+.font-size-sm #konten-soal, .font-size-sm #konten-jawaban {
+    font-size: 14.5px !important;
+}
+.font-size-md #konten-soal, .font-size-md #konten-jawaban {
+    font-size: 17px !important;
+}
+.font-size-lg #konten-soal, .font-size-lg #konten-jawaban {
+    font-size: 20px !important;
+}
+
+/* Dark Mode Exam Theme */
+body.cbt-dark-mode, .cbt-dark-mode .content-wrapper {
+    background-color: #090d16 !important;
+    color: #f1f5f9 !important;
+}
+
+.cbt-dark-mode .card {
+    background-color: #0f172a !important;
+    border-color: #1e293b !important;
+    color: #f8fafc !important;
+}
+
+.cbt-dark-mode .card-header, .cbt-dark-mode .card-footer {
+    background-color: #131d31 !important;
+    border-color: #1e293b !important;
+}
+
+.cbt-dark-mode .exam-question-box {
+    background-color: #0b1120 !important;
+    border-color: #1e293b !important;
+    color: #f8fafc !important;
+}
+
+.cbt-dark-mode .container-jawaban {
+    background: #131d31 !important;
+    border-color: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+
+.cbt-dark-mode .container-jawaban:hover {
+    border-color: #38bdf8 !important;
+    background: #17233d !important;
+}
+
+.cbt-dark-mode .container-jawaban.selected-card {
+    background: rgba(56, 189, 248, 0.15) !important;
+    border-color: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+
+.cbt-dark-mode .exam-watermark-text {
+    color: #94a3b8 !important;
+    opacity: 0.08 !important;
+}

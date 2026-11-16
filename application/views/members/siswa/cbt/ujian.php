@@ -57,18 +57,26 @@
                             </div>
                         </div>
                         <div class="card-body p-4">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <div class="resize-text">
-                                    <button class="btn btn-outline-primary btn-sm rounded-circle mr-1" id="minus" title="Perkecil Teks" style="width: 34px; height: 34px; padding: 0;">
-                                        <i class="fa fa-minus"></i>
-                                    </button>
-                                    <button class="btn btn-outline-primary btn-sm rounded-circle" id="plus" title="Perbesar Teks" style="width: 34px; height: 34px; padding: 0;">
-                                        <i class="fa fa-plus"></i>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                                <div class="d-flex align-items-center mb-2 mb-sm-0">
+                                    <div class="btn-group btn-group-sm mr-2" role="group" aria-label="Font scale">
+                                        <button type="button" class="btn btn-outline-primary" id="btn-font-sm" title="Ukuran Font Kecil">A-</button>
+                                        <button type="button" class="btn btn-outline-primary active" id="btn-font-md" title="Ukuran Font Standar">A</button>
+                                        <button type="button" class="btn btn-outline-primary" id="btn-font-lg" title="Ukuran Font Besar">A+</button>
+                                    </div>
+                                    <button class="btn btn-outline-secondary btn-sm rounded-circle" id="btn-toggle-dark" title="Mode Gelap / Terang" style="width: 32px; height: 32px; padding: 0;">
+                                        <i class="fas fa-moon"></i>
                                     </button>
                                 </div>
+                                <div class="d-flex align-items-center">
+                                    <span id="network-pill" class="network-status-pill network-online">
+                                        <i class="fas fa-wifi mr-1"></i> <span id="network-text">Online</span>
+                                    </span>
+                                </div>
                             </div>
-                            <div class="p-3 mb-3" style="border: 1px solid var(--cbt-border); border-radius: var(--cbt-radius-lg); background: #ffffff;">
-                                <div class="konten-soal-jawab">
+                            <div class="exam-container-relative p-3 mb-3 exam-question-box" style="border: 1px solid var(--cbt-border); border-radius: var(--cbt-radius-lg); background: #ffffff;">
+                                <div id="watermark-layer" class="exam-watermark-overlay"></div>
+                                <div class="konten-soal-jawab font-size-md" style="position: relative; z-index: 2;">
                                     <div class="row p-2 mb-4 ml-1">
                                         <div id="konten-soal" class="table-responsive"></div>
                                     </div>
@@ -205,13 +213,13 @@
             var bank = $('#up').find('input[name="bank"]').val();
 
             let formData = new FormData($('#jawab')[0]);
-            formData.append('siswa', siswa)
-            formData.append('bank', bank)
-            formData.append('data', JSON.stringify(jsonJawaban))
+            formData.append('siswa', siswa);
+            formData.append('bank', bank);
+            formData.append('data', JSON.stringify(jsonJawaban));
 
-            //var dataPost = $(this).serialize() + '&siswa=' + siswa + '&bank=' + bank + '&data=' + JSON.stringify(jsonJawaban);
-            //console.log(dataPost);
-            //console.log(Object.fromEntries(formData))
+            // Backup answer to browser LocalStorage immediately (Dual Storage Resilience)
+            saveAnswerLocally(idSoal, jsonJawaban);
+
             $.ajax({
                 url: base_url + 'siswa/savejawaban',
                 method: 'POST',
@@ -220,43 +228,55 @@
                 data: formData,
                 success: function (response) {
                     soalTerjawab = response.soal_terjawab;
+                    removeAnswerFromOfflineQueue(idSoal);
+                    setOnlineStatus(true);
                     loadSoalNomor(nav);
                 },
                 error: function (xhr, error, status) {
-                    showDangerToast('ERROR!');
-                    console.log(xhr.responseText);
+                    // Queue for auto-sync without halting or locking the student screen
+                    queueAnswerOffline(idSoal, jsonJawaban, siswa, bank);
+                    setOnlineStatus(false);
+                    loadSoalNomor(nav);
                 }
             });
         });
 
-        $("#plus").click(function () {
-            if (zoomClicked > 20) return;
-            $(".konten-soal-jawab").find('*').not('.img-fluid').each(function (idx, v) {
-                //console.log(idx, parseInt($(v).css("font-size")));
-                var size = parseInt($(this).css("font-size"));
-                size = (size + 1) + "px";
-                $(this).css({'font-size': size});
-            });
-            $('.img-fluid').each(function () {
-                var currWidth = parseInt($(this).css('width'));
-                $(this).css('width', (currWidth + 20) + 'px');
-            });
-            zoomClicked +=1;
+        // Font scale buttons (A-, A, A+)
+        $('#btn-font-sm').click(function () {
+            $('.konten-soal-jawab').removeClass('font-size-md font-size-lg').addClass('font-size-sm');
+            $('.btn-group button').removeClass('active');
+            $(this).addClass('active');
+            localStorage.setItem('saduci_font_size', 'sm');
+        });
+        $('#btn-font-md').click(function () {
+            $('.konten-soal-jawab').removeClass('font-size-sm font-size-lg').addClass('font-size-md');
+            $('.btn-group button').removeClass('active');
+            $(this).addClass('active');
+            localStorage.setItem('saduci_font_size', 'md');
+        });
+        $('#btn-font-lg').click(function () {
+            $('.konten-soal-jawab').removeClass('font-size-sm font-size-md').addClass('font-size-lg');
+            $('.btn-group button').removeClass('active');
+            $(this).addClass('active');
+            localStorage.setItem('saduci_font_size', 'lg');
         });
 
-        $("#minus").click(function () {
-            if (zoomClicked <= 0) return;
-            $(".konten-soal-jawab").find('*').not('.img-fluid').each(function () {
-                var size = parseInt($(this).css("font-size"));
-                size = (size - 1) + "px";
-                $(this).css({'font-size': size});
-            });
-            $('.img-fluid').each(function () {
-                var currWidth = parseInt($(this).css('width'));
-                $(this).css('width', (currWidth - 20) + 'px');
-            });
-            zoomClicked -=1;
+        // Restore font size preference if saved
+        var savedFontSize = localStorage.getItem('saduci_font_size');
+        if (savedFontSize === 'sm') $('#btn-font-sm').click();
+        else if (savedFontSize === 'lg') $('#btn-font-lg').click();
+
+        // Dark mode toggle
+        $('#btn-toggle-dark').click(function () {
+            $('body').toggleClass('cbt-dark-mode');
+            var isDark = $('body').hasClass('cbt-dark-mode');
+            $(this).html(isDark ? '<i class="fas fa-sun text-warning"></i>' : '<i class="fas fa-moon"></i>');
+            localStorage.setItem('saduci_dark_mode', isDark ? '1' : '0');
         });
+        if (localStorage.getItem('saduci_dark_mode') === '1') {
+            $('body').addClass('cbt-dark-mode');
+            $('#btn-toggle-dark').html('<i class="fas fa-sun text-warning"></i>');
+        }
 
         loadSoalNomor(1);
     });
@@ -321,6 +341,14 @@
         jsonJawaban = {};
         jawabanBaru = null;
         jawabanSiswa = data.soal_jawaban_siswa != null ? data.soal_jawaban_siswa : '';
+        
+        // Recover from LocalStorage cache if server answer is currently empty
+        var localCached = getLocalAnswer(idSoal);
+        if ((!jawabanSiswa || ($.isArray(jawabanSiswa) && jawabanSiswa.length === 0) || jawabanSiswa === '') && localCached) {
+            if (localCached.jawaban_siswa) {
+                jawabanSiswa = localCached.jawaban_siswa;
+            }
+        }
         if ($.isArray(jawabanSiswa)) jawabanSiswa.sort();
 
         if (nomorSoal === 1) {
@@ -1032,9 +1060,220 @@
         }
     }
 
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden && infoJadwal.reset_login === '1') {
-            location.href=base_url+"siswa/leavecbt/<?= $jadwal->id_jadwal ?>/<?= $siswa->id_siswa ?>";
+    // =========================================================================
+    // SADUCI CBT - ADVANCED ANTI-CHEAT & RESILIENCE ENGINE
+    // =========================================================================
+
+    // 1. Dynamic Watermark Generator
+    function initWatermark() {
+        var watermarkEl = document.getElementById('watermark-layer');
+        if (!watermarkEl) return;
+        var studentText = 'SADUCI CBT \u2022 <?= addslashes($siswa->nama) ?> (<?= $siswa->nis ?>) \u2022 <?= addslashes($siswa->nama_kelas) ?>';
+        var html = '';
+        for (var i = 0; i < 18; i++) {
+            html += '<div class="exam-watermark-text">' + studentText + '</div>';
+        }
+        watermarkEl.innerHTML = html;
+    }
+    initWatermark();
+
+    // 2. Anti-Cheat: Screen Shield (Disable context menu, copy, paste, inspect, print)
+    document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        return false;
+    });
+
+    document.addEventListener('keydown', function (e) {
+        // Block F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, Ctrl+U, Ctrl+C, Ctrl+V, PrintScreen
+        if (e.keyCode === 123 ||
+            (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) ||
+            (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 67 || e.keyCode === 86 || e.keyCode === 88 || e.keyCode === 80)) ||
+            e.keyCode === 44
+        ) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof swal !== 'undefined') {
+                swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'warning',
+                    title: 'Aksi pintasan diblokir demi integritas ujian!',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            }
+            return false;
         }
     });
+
+    // 3. Anti-Cheat: Tab Switch / Blur Detector with 3x Tolerance
+    var MAX_TAB_VIOLATIONS = 3;
+    var examJadwalKey = 'saduci_violations_<?= $jadwal->id_jadwal ?>_<?= $siswa->id_siswa ?>';
+    var tabViolations = parseInt(sessionStorage.getItem(examJadwalKey) || '0');
+    var isWarningOpen = false;
+
+    function handleTabViolation() {
+        if (isWarningOpen) return;
+        // Don't trigger if exam already finished or timer stopped
+        if (typeof timerOut === 'undefined' || timerOut === null) return;
+
+        tabViolations++;
+        sessionStorage.setItem(examJadwalKey, tabViolations);
+
+        if (tabViolations < MAX_TAB_VIOLATIONS) {
+            isWarningOpen = true;
+            var sisaPeringatan = MAX_TAB_VIOLATIONS - tabViolations;
+            if (typeof swal !== 'undefined') {
+                swal.fire({
+                    title: '⚠️ Peringatan Pindah Layar!',
+                    html: '<p class="mb-2">Anda terdeteksi meninggalkan layar ujian.</p>' +
+                          '<p class="mb-1 text-danger font-weight-bold">Pelanggaran ke-<b>' + tabViolations + '</b> dari <b>' + MAX_TAB_VIOLATIONS + '</b> batas toleransi.</p>' +
+                          '<small class="text-muted">Tersisa ' + sisaPeringatan + ' kesempatan sebelum ujian terkunci otomatis!</small>',
+                    icon: 'warning',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'Saya Mengerti & Kembali ke Ujian',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                }).then(() => {
+                    isWarningOpen = false;
+                });
+            }
+        } else {
+            isWarningOpen = true;
+            if (typeof swal !== 'undefined') {
+                swal.fire({
+                    title: '🚫 Ujian Terkunci!',
+                    html: '<p>Anda telah melakukan perpindahan layar melebihi batas toleransi (' + MAX_TAB_VIOLATIONS + 'x).</p>' +
+                          '<p class="text-danger font-weight-bold mb-0">Ujian Anda telah dikunci oleh sistem dan harus di-reset oleh pengawas/administrator.</p>',
+                    icon: 'error',
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Tutup & Laporkan ke Pengawas',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                }).then(() => {
+                    location.href = base_url + "siswa/leavecbt/<?= $jadwal->id_jadwal ?>/<?= $siswa->id_siswa ?>";
+                });
+            } else {
+                location.href = base_url + "siswa/leavecbt/<?= $jadwal->id_jadwal ?>/<?= $siswa->id_siswa ?>";
+            }
+        }
+    }
+
+    document.addEventListener("visibilitychange", function () {
+        if (document.hidden) {
+            handleTabViolation();
+        }
+    });
+
+    window.addEventListener("blur", function () {
+        handleTabViolation();
+    });
+
+    // 4. Offline Resilience & LocalStorage Dual-Save
+    function setOnlineStatus(isOnline) {
+        var pill = $('#network-pill');
+        var text = $('#network-text');
+        if (isOnline) {
+            pill.removeClass('network-offline').addClass('network-online');
+            text.text('Online');
+        } else {
+            pill.removeClass('network-online').addClass('network-offline');
+            text.text('Offline (Disimpan di HP)');
+        }
+    }
+
+    function saveAnswerLocally(soalId, dataJson) {
+        try {
+            var localKey = 'saduci_answer_<?= $jadwal->id_jadwal ?>_<?= $siswa->id_siswa ?>_' + soalId;
+            localStorage.setItem(localKey, JSON.stringify(dataJson));
+        } catch (e) {
+            console.warn('LocalStorage error:', e);
+        }
+    }
+
+    function getLocalAnswer(soalId) {
+        try {
+            var localKey = 'saduci_answer_<?= $jadwal->id_jadwal ?>_<?= $siswa->id_siswa ?>_' + soalId;
+            var val = localStorage.getItem(localKey);
+            return val ? JSON.parse(val) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function queueAnswerOffline(soalId, dataJson, siswaId, bankId) {
+        try {
+            var queueKey = 'saduci_offline_queue_<?= $jadwal->id_jadwal ?>_<?= $siswa->id_siswa ?>';
+            var queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+            queue = queue.filter(function(item) { return item.soalId !== soalId; });
+            queue.push({
+                soalId: soalId,
+                data: dataJson,
+                siswa: siswaId,
+                bank: bankId,
+                jadwal: '<?= $jadwal->id_jadwal ?>',
+                time: new Date().getTime()
+            });
+            localStorage.setItem(queueKey, JSON.stringify(queue));
+            showWarningToast('Koneksi internet terputus. Jawaban No. ' + nomorSoal + ' diamankan di HP & akan disinkron otomatis!');
+        } catch (e) {
+            console.error('Queue error:', e);
+        }
+    }
+
+    function removeAnswerFromOfflineQueue(soalId) {
+        try {
+            var queueKey = 'saduci_offline_queue_<?= $jadwal->id_jadwal ?>_<?= $siswa->id_siswa ?>';
+            var queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+            queue = queue.filter(function(item) { return item.soalId !== soalId; });
+            localStorage.setItem(queueKey, JSON.stringify(queue));
+        } catch (e) {}
+    }
+
+    function syncOfflineQueue() {
+        var queueKey = 'saduci_offline_queue_<?= $jadwal->id_jadwal ?>_<?= $siswa->id_siswa ?>';
+        var queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+        if (!queue || queue.length === 0) return;
+
+        var itemsToSync = queue.slice();
+        var syncCount = 0;
+
+        itemsToSync.forEach(function (item) {
+            var fd = new FormData();
+            fd.append('siswa', item.siswa);
+            fd.append('bank', item.bank);
+            fd.append('jadwal', item.jadwal);
+            fd.append('data', JSON.stringify(item.data));
+
+            $.ajax({
+                url: base_url + 'siswa/savejawaban',
+                method: 'POST',
+                processData: false,
+                contentType: false,
+                data: fd,
+                success: function () {
+                    removeAnswerFromOfflineQueue(item.soalId);
+                    syncCount++;
+                    if (syncCount === itemsToSync.length) {
+                        showSuccessToast('Semua jawaban offline (' + syncCount + ') berhasil disinkronkan ke server!');
+                    }
+                }
+            });
+        });
+    }
+
+    window.addEventListener('online', function () {
+        setOnlineStatus(true);
+        syncOfflineQueue();
+    });
+
+    window.addEventListener('offline', function () {
+        setOnlineStatus(false);
+    });
+
+    if (navigator.onLine) {
+        syncOfflineQueue();
+    } else {
+        setOnlineStatus(false);
+    }
 </script>
