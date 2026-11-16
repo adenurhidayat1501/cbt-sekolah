@@ -342,28 +342,28 @@ $has_group = !empty($wa_setting->target_group);
                                             </thead>
                                             <tbody>
                                                 <tr>
-                                                    <td><span class="badge badge-danger px-2 py-1">!absen</span> <br><small class="text-muted">atau tombol 📋</small></td>
+                                                    <td><span class="badge badge-danger px-2 py-1">!absen</span> <br><small class="text-muted">atau: absen, tidak ujian</small></td>
                                                     <td>Menampilkan jumlah dan <b>nama-nama siswa yang belum/tidak mengikuti ujian hari ini</b> dikelompokkan per kelas.</td>
                                                     <td><span class="badge badge-light border">Grup & Pribadi</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-success px-2 py-1">!rekap</span> <br><small class="text-muted">atau tombol 📊</small></td>
+                                                    <td><span class="badge badge-success px-2 py-1">!rekap</span> <br><small class="text-muted">atau: rekap, rekap nilai</small></td>
                                                     <td>Mengirimkan <b>rekapitulasi nilai ujian per mapel beserta lampiran file Excel (.xlsx)</b> dan link download langsung.</td>
                                                     <td><span class="badge badge-light border">Grup & Pribadi</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-info px-2 py-1">!server</span> <br><small class="text-muted">atau tombol 🖥️</small></td>
+                                                    <td><span class="badge badge-info px-2 py-1">!server</span> <br><small class="text-muted">atau: server, cek server</small></td>
                                                     <td>Menampilkan status beban CPU, RAM, jumlah siswa online detik ini, dan kesehatan server CBT.</td>
                                                     <td><span class="badge badge-light border">Grup & Pribadi</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-warning px-2 py-1">!token</span> <br><small class="text-muted">atau tombol 🔑</small></td>
+                                                    <td><span class="badge badge-warning px-2 py-1">!token</span> <br><small class="text-muted">atau: token, token ujian</small></td>
                                                     <td>Menampilkan token ujian aktif hari ini untuk konfirmasi siswa.</td>
                                                     <td><span class="badge badge-light border">Grup & Pribadi</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-secondary px-2 py-1">!menu</span> <br><small class="text-muted">atau kata halo, bantuan</small></td>
-                                                    <td>Menampilkan menu bantuan interaktif dengan tombol-tombol pintasan.</td>
+                                                    <td><span class="badge badge-secondary px-2 py-1">!menu</span> <br><small class="text-muted">atau: menu, bantuan</small></td>
+                                                    <td>Menampilkan menu bantuan interaktif dengan seluruh perintah monitoring.</td>
                                                     <td><span class="badge badge-light border">Grup & Pribadi</span></td>
                                                 </tr>
                                             </tbody>
@@ -392,7 +392,7 @@ $has_group = !empty($wa_setting->target_group);
                                                 2. Budi Santoso (NIS: 2425012)<br>
                                                 3. Citra Lestari (NIS: 2425023)<br>
                                                 ...<br><br>
-                                                [📋 Refresh Absen] [📊 Rekap Nilai] [🖥️ Status Server]
+                                                💡 Ketik perintah: <b>!absen</b>, <b>!rekap</b>, atau <b>!server</b>
                                             </div>
                                         </div>
                                     </div>
@@ -433,6 +433,15 @@ $has_group = !empty($wa_setting->target_group);
                                                         <span class="badge <?= $lg->status === 'SUCCESS' ? 'badge-success' : 'badge-danger' ?>">
                                                             <?= $lg->status ?>
                                                         </span>
+                                                        <?php if ($lg->status !== 'SUCCESS' && !empty($lg->response)): ?>
+                                                            <?php 
+                                                                $resp_decoded = json_decode($lg->response, true);
+                                                                $reason = is_array($resp_decoded) ? ($resp_decoded['reason'] ?? ($resp_decoded['message'] ?? $lg->response)) : $lg->response;
+                                                            ?>
+                                                            <small class="text-danger d-block text-xs mt-1" style="max-width: 160px; margin: 0 auto; line-height: 1.2;" title="<?= html_escape($reason) ?>">
+                                                                <?= html_escape(mb_strimwidth($reason, 0, 45, '...')) ?>
+                                                            </small>
+                                                        <?php endif; ?>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -619,9 +628,11 @@ $(document).ready(function () {
             success: function (res) {
                 btn.prop('disabled', false).html('<i class="fab fa-whatsapp mr-1"></i>Kirim Pesan Tes');
                 if (res.status) {
-                    Swal.fire('Terkirim!', 'Pesan pengujian berhasil dikirim via Fonnte!', 'success');
+                    Swal.fire('Terkirim!', 'Pesan pengujian berhasil dikirim via Fonnte!', 'success').then(() => {
+                        location.reload();
+                    });
                 } else {
-                    Swal.fire('Gagal!', res.message || 'Gagal mengirim pesan tes. Periksa kembali token API Fonnte.', 'error');
+                    Swal.fire('Gagal!', res.reason || res.message || 'Gagal mengirim pesan tes. Periksa kembali token API Fonnte.', 'error');
                 }
             },
             error: function () {

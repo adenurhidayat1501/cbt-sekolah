@@ -150,19 +150,21 @@ class Cbtwa extends CI_Controller {
             return;
         }
 
-        $message = "🤖 *TES KONEKSI BOT SADUCI CBT*\n\n";
-        $message .= "Halo! Layanan WhatsApp Gateway Fonnte berhasil terhubung dengan server *SADUCI CBT (SMP Negeri Satu Atap 2 Cipatujah)*.\n\n";
+        $message = "🤖 *TES KONEKSI BOT SADUCI CBT*\n";
+        $message .= "🏫 *SMP Negeri Satu Atap 2 Cipatujah*\n";
+        $message .= "────────────────────────────\n\n";
+        $message .= "Halo! Layanan WhatsApp Gateway Fonnte berhasil terhubung dengan server CBT.\n\n";
         $message .= "⏱️ Waktu Kirim: " . date('d/m/Y H:i:s') . " WIB\n";
         $message .= "Status: *AKTIF & SIAP DIGUNAKAN* ✅\n\n";
-        $message .= "Gunakan tombol di bawah atau ketik *!menu* untuk melihat fitur monitoring.";
+        $message .= "💡 *Daftar Perintah Monitoring WA:*\n";
+        $message .= "• *!absen* : Cek siswa belum/tidak ujian hari ini\n";
+        $message .= "• *!rekap* : Rekap nilai & unduh file Excel hasil ujian\n";
+        $message .= "• *!server* : Cek status beban & kesehatan server\n";
+        $message .= "• *!token* : Cek token ujian aktif hari ini\n";
+        $message .= "• *!menu* : Tampilkan menu bantuan ini\n\n";
+        $message .= "_Silakan ketik perintah di atas untuk mencoba._";
 
-        $buttons = [
-            ['id' => '!absen', 'text' => '📋 Cek Siswa Belum Ujian'],
-            ['id' => '!rekap', 'text' => '📊 Rekap Nilai Mapel'],
-            ['id' => '!server', 'text' => '🖥️ Status Server']
-        ];
-
-        $res = $this->wa->sendFonnte($target, $message, null, null, $buttons);
+        $res = $this->wa->sendFonnte($target, $message);
         $this->output_json($res);
     }
 
@@ -181,13 +183,7 @@ class Cbtwa extends CI_Controller {
         $reports = $this->wa->getSiswaTidakUjianHariIni();
         $message = $this->wa->formatAbsenMessage($reports);
 
-        $buttons = [
-            ['id' => '!absen', 'text' => '🔄 Refresh Data Absen'],
-            ['id' => '!rekap', 'text' => '📊 Rekap Nilai Mapel'],
-            ['id' => '!server', 'text' => '🖥️ Status Server']
-        ];
-
-        $res = $this->wa->sendFonnte($target, $message, null, null, $buttons);
+        $res = $this->wa->sendFonnte($target, $message);
         $this->output_json($res);
     }
 
@@ -222,13 +218,7 @@ class Cbtwa extends CI_Controller {
 
         $message = $this->wa->formatRekapMessage($rekap_data, $excel_url);
 
-        $buttons = [
-            ['id' => '!absen', 'text' => '📋 Cek Siswa Belum Ujian'],
-            ['id' => '!server', 'text' => '🖥️ Status Server'],
-            ['id' => '!menu', 'text' => '🏠 Menu Utama']
-        ];
-
-        $res = $this->wa->sendFonnte($target, $message, $excel_url, $excel_filename, $buttons);
+        $res = $this->wa->sendFonnte($target, $message, $excel_url, $excel_filename);
         if ($res['status']) {
             $res['excel_url'] = $excel_url;
         }
@@ -236,7 +226,7 @@ class Cbtwa extends CI_Controller {
     }
 
     /**
-     * Webhook Fonnte untuk menerima pesan masuk / klik tombol dari WhatsApp
+     * Webhook Fonnte untuk menerima pesan masuk dari WhatsApp
      * URL Webhook: https://domain-anda.sch.id/cbtwa/webhook
      */
     public function webhook() {
@@ -257,23 +247,33 @@ class Cbtwa extends CI_Controller {
             return;
         }
 
-        // Catat webhook yang masuk
+        $is_group = (strpos($sender, '@g.us') !== false);
+        $clean_msg = strtolower(trim($message));
+        $clean_msg = preg_replace('/\s+/', ' ', $clean_msg);
+
+        // Periksa apakah pesan merupakan perintah bot
+        $is_absen = in_array($clean_msg, ['!absen', '/absen', '#absen', 'absen', 'tidak ujian', 'belum ujian', 'cek absen', 'absen ujian', 'siswa tidak ujian']);
+        $is_rekap = in_array($clean_msg, ['!rekap', '/rekap', '#rekap', 'rekap', 'nilai', '!nilai', '/nilai', 'rekap nilai', 'hasil ujian']);
+        $is_server = in_array($clean_msg, ['!server', '/server', '#server', 'server', 'status server', 'cek server']);
+        $is_token = in_array($clean_msg, ['!token', '/token', '#token', 'token', 'token ujian', 'cek token']);
+        $is_menu = in_array($clean_msg, ['!menu', '/menu', '#menu', 'menu', 'help', '!help', '/help', 'bantuan', '!bantuan', 'halo', 'cbt', 'bot']);
+
+        // Jika pesan di grup WhatsApp dan bukan perintah bot, abaikan agar tidak spamming obrolan guru
+        if ($is_group && !$is_absen && !$is_rekap && !$is_server && !$is_token && !$is_menu) {
+            $this->output_json(['status' => true, 'message' => 'Ignored regular group conversation']);
+            return;
+        }
+
+        // Catat webhook yang relevan
         $this->wa->logMessage('in', $sender, 'SADUCI CBT', $message, 'webhook', 'SUCCESS', $raw_input);
 
-        $cmd = strtolower(trim($message));
-
         // Router Perintah Bot
-        if (in_array($cmd, ['!absen', 'absen', 'tidak ujian', 'belum ujian', 'cek absen', 'btn_absen', 'absen ujian'])) {
+        if ($is_absen) {
             $reports = $this->wa->getSiswaTidakUjianHariIni();
             $reply = $this->wa->formatAbsenMessage($reports);
-            $buttons = [
-                ['id' => '!absen', 'text' => '🔄 Refresh Data Absen'],
-                ['id' => '!rekap', 'text' => '📊 Rekap Nilai Mapel'],
-                ['id' => '!server', 'text' => '🖥️ Status Server']
-            ];
-            $this->wa->sendFonnte($sender, $reply, null, null, $buttons);
+            $this->wa->sendFonnte($sender, $reply);
 
-        } else if (in_array($cmd, ['!rekap', 'rekap', 'nilai', '!nilai', 'rekap nilai', 'btn_rekap', 'hasil ujian'])) {
+        } else if ($is_rekap) {
             // Dapatkan jadwal aktif hari ini atau terbaru
             $today_reports = $this->wa->getSiswaTidakUjianHariIni();
             $id_jadwal_target = null;
@@ -286,12 +286,7 @@ class Cbtwa extends CI_Controller {
                 if ($rekap_data) {
                     $excel_info = $this->wa->generateExcelRekap($rekap_data);
                     $reply = $this->wa->formatRekapMessage($rekap_data, $excel_info['url']);
-                    $buttons = [
-                        ['id' => '!absen', 'text' => '📋 Cek Siswa Belum Ujian'],
-                        ['id' => '!server', 'text' => '🖥️ Status Server'],
-                        ['id' => '!menu', 'text' => '🏠 Menu Utama']
-                    ];
-                    $this->wa->sendFonnte($sender, $reply, $excel_info['url'], $excel_info['filename'], $buttons);
+                    $this->wa->sendFonnte($sender, $reply, $excel_info['url'], $excel_info['filename']);
                 } else {
                     $reply = "ℹ️ Belum ada data nilai ujian yang tersimpan untuk jadwal hari ini.\n\nKetik *!absen* untuk cek siswa belum ujian.";
                     $this->wa->sendFonnte($sender, $reply);
@@ -301,43 +296,32 @@ class Cbtwa extends CI_Controller {
                 $this->wa->sendFonnte($sender, $reply);
             }
 
-        } else if (in_array($cmd, ['!server', 'server', 'status server', 'btn_server', 'cek server'])) {
+        } else if ($is_server) {
             $reply = $this->wa->formatServerStatusMessage();
-            $buttons = [
-                ['id' => '!absen', 'text' => '📋 Cek Siswa Belum Ujian'],
-                ['id' => '!rekap', 'text' => '📊 Rekap Nilai Mapel'],
-                ['id' => '!menu', 'text' => '🏠 Menu Utama']
-            ];
-            $this->wa->sendFonnte($sender, $reply, null, null, $buttons);
+            $this->wa->sendFonnte($sender, $reply);
 
-        } else if (in_array($cmd, ['!token', 'token', 'btn_token', 'cek token'])) {
+        } else if ($is_token) {
             $reply = $this->wa->formatTokenMessage();
-            $buttons = [
-                ['id' => '!absen', 'text' => '📋 Cek Siswa Belum Ujian'],
-                ['id' => '!server', 'text' => '🖥️ Status Server'],
-                ['id' => '!menu', 'text' => '🏠 Menu Utama']
-            ];
-            $this->wa->sendFonnte($sender, $reply, null, null, $buttons);
+            $this->wa->sendFonnte($sender, $reply);
 
         } else {
-            // Menu Utama Default
+            // Menu Bantuan Utama
             $reply = "🤖 *BOT MONITORING SADUCI CBT*\n";
             $reply .= "SMP Negeri Satu Atap 2 Cipatujah\n\n";
             $reply .= "Halo, *{$name}*! 👋\n";
-            $reply .= "Gunakan tombol di bawah atau ketik perintah kata kunci untuk monitoring ujian secara langsung:\n\n";
-            $reply .= "👉 *!absen* : Cek siswa yang belum/tidak ujian hari ini\n";
+            $reply .= "Ketik salah satu perintah berikut untuk monitoring ujian secara langsung:\n\n";
+            $reply .= "👉 *!absen* : Cek siswa belum/tidak ujian hari ini\n";
             $reply .= "👉 *!rekap* : Rekap nilai & unduh file Excel hasil ujian\n";
             $reply .= "👉 *!server* : Cek status beban & kesehatan server\n";
-            $reply .= "👉 *!token* : Cek token ujian hari ini\n\n";
-            $reply .= "_Ketik perintah di atas atau langsung klik tombol pilihan di bawah:_";
+            $reply .= "👉 *!token* : Cek token ujian hari ini\n";
+            $reply .= "👉 *!menu* : Tampilkan menu bantuan ini\n\n";
+            $reply .= "_Ketik perintah kata kunci di atas untuk memulai._";
 
-            $buttons = [
-                ['id' => '!absen', 'text' => '📋 Siswa Tidak Ujian'],
-                ['id' => '!rekap', 'text' => '📊 Rekap Nilai Mapel'],
-                ['id' => '!server', 'text' => '🖥️ Status Server']
-            ];
-            $this->wa->sendFonnte($sender, $reply, null, null, $buttons);
+            $this->wa->sendFonnte($sender, $reply);
         }
+
+        $this->output_json(['status' => true, 'message' => 'Command processed']);
+    }
 
         $this->output_json(['status' => true, 'message' => 'Command processed']);
     }

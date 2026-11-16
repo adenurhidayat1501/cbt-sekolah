@@ -23,6 +23,7 @@ class Wa_model extends CI_Model {
 
     /**
      * Auto-inisialisasi tabel setting dan log WhatsApp jika belum ada di database
+     * serta memastikan dukungan charset utf8mb4 untuk emoji WhatsApp
      */
     private function initTables() {
         // Tabel setting WhatsApp
@@ -37,7 +38,7 @@ class Wa_model extends CI_Model {
                 `footer_pesan` text NULL,
                 `updated_at` datetime NULL DEFAULT NULL,
                 PRIMARY KEY (`id_setting`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
             $this->db->query($sql);
 
             // Insert default row
@@ -65,9 +66,13 @@ class Wa_model extends CI_Model {
                 `status` varchar(20) NOT NULL DEFAULT 'SUCCESS',
                 `response` text NULL,
                 PRIMARY KEY (`id_log`)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
             $this->db->query($sql_log);
         }
+
+        // Pastikan tabel yang sudah ada sebelumnya dikonversi ke utf8mb4 agar emoji WA tidak menjadi '????'
+        @$this->db->query("ALTER TABLE `cbt_wa_setting` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+        @$this->db->query("ALTER TABLE `cbt_wa_log` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
     }
 
     /**
@@ -99,18 +104,19 @@ class Wa_model extends CI_Model {
     }
 
     /**
-     * Mencatat aktivitas log WhatsApp
+     * Mencatat aktivitas log WhatsApp (mendukung karakter emoji utf8mb4)
      */
     public function logMessage($direction, $sender, $target, $message, $type, $status, $response) {
+        @$this->db->query("SET NAMES 'utf8mb4'");
         return $this->db->insert('cbt_wa_log', [
             'time' => date('Y-m-d H:i:s'),
             'direction' => $direction,
             'sender' => $sender,
             'target' => $target,
-            'message' => is_string($message) ? $message : json_encode($message),
+            'message' => is_string($message) ? $message : json_encode($message, JSON_UNESCAPED_UNICODE),
             'type' => $type,
             'status' => $status,
-            'response' => is_string($response) ? $response : json_encode($response)
+            'response' => is_string($response) ? $response : json_encode($response, JSON_UNESCAPED_UNICODE)
         ]);
     }
 
@@ -124,7 +130,10 @@ class Wa_model extends CI_Model {
     }
 
     /**
-     * Mengirim pesan, tombol, atau dokumen via Fonnte API
+     * Mengirim pesan atau dokumen via Fonnte API
+     * 
+     * Catatan: Fonnte & WhatsApp Cloud API telah resmi menonaktifkan fitur tombol interaktif (buttons).
+     * Oleh karena itu, semua pesan dikirim sebagai pesan teks rapi dengan kata kunci perintah yang jelas.
      */
     public function sendFonnte($target, $message, $url = null, $filename = null, $buttons = null) {
         $setting = $this->getSetting();
@@ -136,20 +145,34 @@ class Wa_model extends CI_Model {
             return ['status' => false, 'message' => 'Target nomor atau ID grup WhatsApp belum ditentukan'];
         }
 
+        // Deteksi apakah target adalah ID Grup WhatsApp (@g.us)
+        $is_group = (strpos($target, '@g.us') !== false);
+        $clean_target = trim($target);
+
+        // Jika bukan grup, format nomor telepon (buang karakter selain angka dan awalan 0 menjadi 62)
+        if (!$is_group) {
+            $clean_target = preg_replace('/[^0-9]/', '', $clean_target);
+            if (substr($clean_target, 0, 1) === '0') {
+                $clean_target = '62' . substr($clean_target, 1);
+            }
+        }
+
         $post_data = [
-            'target' => $target,
+            'target' => $clean_target,
             'message' => $message,
-            'countryCode' => '62',
         ];
 
+        // countryCode HANYA dikirim jika target adalah nomor perorangan (bukan grup @g.us)
+        if (!$is_group) {
+            $post_data['countryCode'] = '62';
+        }
+
+        // Lampiran file dokumen (misalnya file Excel rekap nilai)
         if (!empty($url)) {
             $post_data['url'] = $url;
         }
         if (!empty($filename)) {
             $post_data['filename'] = $filename;
-        }
-        if (!empty($buttons) && is_array($buttons)) {
-            $post_data['button'] = json_encode($buttons);
         }
 
         $curl = curl_init();
@@ -179,12 +202,28 @@ class Wa_model extends CI_Model {
             $is_success = false;
         }
 
+        // Tangkap pesan status / alasan dari server Fonnte secara spesifik
+        $reason = '';
+        if (isset($resp_json['reason'])) {
+            $reason = $resp_json['reason'];
+        } else if (isset($resp_json['message'])) {
+            $reason = $resp_json['message'];
+        } else if (!empty($err)) {
+            $reason = 'cURL Error: ' . $err;
+        } else if (!$is_success) {
+            $reason = 'Gagal menghubungi server Fonnte (HTTP ' . $http_code . ')';
+        } else {
+            $reason = 'Pesan berhasil dikirim via Fonnte';
+        }
+
         // Catat ke log
-        $this->logMessage('out', 'SADUCI CBT', $target, $message, !empty($url) ? 'document' : 'text', $is_success ? 'SUCCESS' : 'FAILED', $response ?: $err);
+        $this->logMessage('out', 'SADUCI CBT', $clean_target, $message, !empty($url) ? 'document' : 'text', $is_success ? 'SUCCESS' : 'FAILED', $response ?: $reason);
 
         return [
             'status' => $is_success,
             'http_code' => $http_code,
+            'message' => $reason,
+            'reason' => $reason,
             'response' => $resp_json ?: $response,
             'error' => $err
         ];
@@ -368,10 +407,11 @@ class Wa_model extends CI_Model {
             $msg .= "────────────────────────────\n";
         }
 
-        $msg .= "\n💡 *Petunjuk Tombol / Perintah:* \n";
+        $msg .= "\n💡 *Petunjuk Perintah Bot:* \n";
         $msg .= "• Ketik *!absen* untuk cek ulang data ini\n";
-        $msg .= "• Ketik *!rekap* untuk rekap nilai mapel\n";
-        $msg .= "• Ketik *!server* untuk cek kesehatan server";
+        $msg .= "• Ketik *!rekap* untuk rekap nilai & unduh file Excel\n";
+        $msg .= "• Ketik *!server* untuk cek kesehatan server\n";
+        $msg .= "• Ketik *!token* untuk token ujian hari ini";
 
         return $msg;
     }
