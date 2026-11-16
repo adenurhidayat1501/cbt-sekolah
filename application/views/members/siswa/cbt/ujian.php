@@ -1,10 +1,14 @@
 <?php
 /**
- * Created by IntelliJ IDEA.
- * User: multazam
- * Date: 23/08/20
- * Time: 23:18
+ * View Ujian Siswa - SADUCI CBT (SMP Negeri Satu Atap 2 Cipatujah)
+ *
+ * @var object $siswa
+ * @var object $jadwal
+ * @var object $elapsed
+ * @var object $user
+ * @var object $setting
  */
+defined('BASEPATH') or exit('No direct script access allowed');
 ?>
 <div class="content-wrapper" style="margin-top: -1px;">
     <div class="sticky">
