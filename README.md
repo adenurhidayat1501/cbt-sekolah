@@ -29,7 +29,18 @@ Aplikasi **SADUCI CBT (SMP Negeri Satu Atap 2 Cipatujah, Kab. Tasikmalaya)** ber
    - **Real-Time Student Progress**: Menampilkan status siswa (Sedang Mengerjakan [Hijau Berkedip], Selesai [Biru], Belum Mulai [Abu-abu], Terkunci/Perlu Reset [Merah]), progres soal terjawab (misal: 25/30 Soal - 83%), sisa waktu ujian, IP address, dan perangkat.
    - **1-Click Quick Actions**: Buka kunci login siswa seketika (1-click Reset Login) dan 1-click Paksa Selesai, serta dukungan aksi massal (Bulk Action).
    - **Monitor Sistem & Resource Server**: Widget CPU load (1m/5m/15m & %), RAM usage (GB & %), MariaDB active threads, live concurrent students counter, sisa kapasitas disk, dan server clock synchronization.
-4. **Penyebaran Otomatis di VPS (Clean Slate & Custom Database)**
+4. **WhatsApp Bot Monitoring & Fonnte Gateway Integration (`cbtwa`)**
+   - **Integrasi API Fonnte**: Terhubung langsung ke WhatsApp Gateway Fonnte untuk notifikasi dan interaksi dua arah (*two-way bot*).
+   - **Laporan Siswa Belum Ujian**: Mendata siswa yang terdaftar di jadwal ujian hari ini namun belum mengikuti ujian, lengkap dengan rincian nama dan kelas, serta dikirim ke grup WA panitia/pengawas.
+   - **Kirim Rekap Nilai & File Excel Langsung ke Grup**: Menghitung statistik nilai per mapel (rata-rata, tertinggi, terendah, persentase tuntas, top 5 siswa), men-generate berkas Excel resmi `.xlsx`, dan mengirimkannya langsung ke grup WhatsApp dengan link unduhan.
+   - **Interaksi Tombol & Kata Kunci (*Two-Way Webhook Bot*)**: Bot merespons secara otomatis di grup maupun chat pribadi melalui tombol WhatsApp atau perintah teks:
+     - `!absen` : Cek daftar siswa yang belum/tidak mengikuti ujian hari ini.
+     - `!rekap` : Mengirim ringkasan nilai ujian per mapel & file Excel rekapitulasi.
+     - `!server` : Cek beban CPU, RAM, koneksi DB, dan jumlah siswa online.
+     - `!token` : Cek token ujian aktif hari ini.
+     - `!menu` : Menampilkan menu utama interaktif dengan tombol navigasi.
+   - **Webhook Receiver**: Endpoint `/cbtwa/webhook` siap dipasang di dashboard Fonnte (*Device Settings*).
+5. **Penyebaran Otomatis di VPS (Clean Slate & Custom Database)**
    - **Pembersihan Project Lama**: Otomatis menghapus project lama di `/var/www` dan me-reset VirtualHost Apache lama sebelum setup agar tidak bentrok.
    - **Kustomisasi Database Gampang**: Mendukung kustomisasi nama DB, user, password, dan port, serta integrasi file `.env` untuk kemudahan perubahan konfigurasi kapan saja.
    - Skrip `install-vps.sh` untuk instalasi mandiri Apache, MariaDB, PHP, ekstensi, permissions, VirtualHost, dan database dalam 1 perintah.

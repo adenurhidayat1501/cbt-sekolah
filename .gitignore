@@ -23,6 +23,8 @@ uploads/*
 !uploads/bank_soal/
 !uploads/import/
 !uploads/import/**
+!uploads/rekap/
+!uploads/rekap/**
 
 # Dependencies
 /vendor/
