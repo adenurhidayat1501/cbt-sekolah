@@ -606,8 +606,18 @@ fi
 # ------------------------------------------------------------------------------
 # 9. STEP 6: Configure Apache VirtualHost & Modules
 # ------------------------------------------------------------------------------
-echo -e "${BLUE}[7/8] Mengonfigurasi Apache VirtualHost...${NC}"
+echo -e "${BLUE}[7/8] Mengonfigurasi Apache VirtualHost & modul PHP...${NC}"
+
+# Ensure PHP module is active (switch to mpm_prefork if mpm_event was active)
+a2dismod mpm_event mpm_worker 2>/dev/null || true
+a2enmod mpm_prefork 2>/dev/null || true
+a2enmod php$PHP_VER 2>/dev/null || a2enmod php 2>/dev/null || true
 a2enmod rewrite headers expires ssl 2>/dev/null || true
+
+# Guard .htaccess against unshielded php_value syntax error
+if [ -f "$WEB_ROOT/.htaccess" ]; then
+    sed -i 's/^php_value max_input_vars/#php_value max_input_vars/g' "$WEB_ROOT/.htaccess" 2>/dev/null || true
+fi
 
 VHOST_FILE="/etc/apache2/sites-available/saduci_cbt.conf"
 cat <<EOF > "$VHOST_FILE"
