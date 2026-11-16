@@ -128,6 +128,14 @@ class Cbtwa extends CI_Controller {
     }
 
     /**
+     * Mengambil daftar grup WhatsApp yang diikuti oleh device Fonnte
+     */
+    public function get_groups() {
+        $res = $this->wa->getFonnteGroups();
+        $this->output_json($res);
+    }
+
+    /**
      * Kirim pesan tes ke nomor Admin atau Grup
      */
     public function test_send() {

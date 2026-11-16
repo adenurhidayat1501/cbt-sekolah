@@ -191,6 +191,42 @@ class Wa_model extends CI_Model {
     }
 
     /**
+     * Mengambil daftar grup WhatsApp yang diikuti oleh device dari API Fonnte
+     */
+    public function getFonnteGroups() {
+        $setting = $this->getSetting();
+        if (!$setting || empty($setting->api_token)) {
+            return ['status' => false, 'message' => 'Token API Fonnte belum dikonfigurasi di Pengaturan'];
+        }
+
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL => 'https://api.fonnte.com/get-whatsapp-group',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_HTTPHEADER => [
+                'Authorization: ' . trim($setting->api_token)
+            ],
+        ]);
+
+        $response = curl_exec($curl);
+        $err = curl_error($curl);
+        $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        if ($http_code == 200 && empty($err)) {
+            $data = json_decode($response, true);
+            return $data ?: ['status' => false, 'message' => 'Format respons grup Fonnte tidak valid'];
+        }
+
+        return [
+            'status' => false,
+            'message' => $err ?: 'Gagal menghubungi server Fonnte (HTTP ' . $http_code . ')'
+        ];
+    }
+
+    /**
      * Memeriksa daftar siswa yang belum mengikuti ujian pada hari ini
      * Mengembalikan data lengkap per kelas dan mapel
      */

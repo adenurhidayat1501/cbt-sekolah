@@ -245,10 +245,17 @@ $has_group = !empty($wa_setting->target_group);
                                             <label class="font-weight-bold">
                                                 <i class="fas fa-users text-primary mr-1"></i>ID Grup WhatsApp (Tujuan Broadcast Laporan)
                                             </label>
-                                            <input type="text" name="target_group" id="target_group" class="form-control" 
-                                                   value="<?= html_escape($wa_setting->target_group) ?>" placeholder="Contoh: 120363023456789012@g.us atau 08123456789">
+                                            <div class="input-group">
+                                                <input type="text" name="target_group" id="target_group" class="form-control font-weight-bold" 
+                                                       value="<?= html_escape($wa_setting->target_group) ?>" placeholder="Contoh: 120363023456789012@g.us">
+                                                <div class="input-group-append">
+                                                    <button type="button" class="btn btn-primary" id="btn-fetch-groups" title="Tarik daftar grup dari WhatsApp Fonnte">
+                                                        <i class="fas fa-search mr-1"></i>Pilih dari Daftar Grup
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <small class="text-muted">
-                                                Bisa berupa <b>ID Grup WA</b> (berakhiran <code>@g.us</code>) atau nomor HP Panitia/Admin.
+                                                Klik tombol <b>Pilih dari Daftar Grup</b> untuk otomatis memuat grup WA yang diikuti nomor bot Fonnte.
                                             </small>
                                         </div>
 
@@ -446,12 +453,112 @@ $has_group = !empty($wa_setting->target_group);
     </section>
 </div>
 
+<!-- Modal Pilih Grup WhatsApp -->
+<div class="modal fade" id="modal-pilih-grup" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title font-weight-bold"><i class="fab fa-whatsapp mr-2"></i>Daftar Grup WhatsApp (Fonnte)</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div id="loading-groups" class="text-center py-4 d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2 mb-0">Sedang menarik daftar grup dari Fonnte WhatsApp...</p>
+                </div>
+                <div id="content-groups">
+                    <p class="text-xs text-muted mb-3">
+                        Berikut adalah daftar grup WhatsApp yang diikuti oleh nomor device WhatsApp Anda. Klik tombol <b>Pilih</b> pada grup yang ingin dijadikan target pengiriman laporan ujian CBT.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered text-sm" id="table-grup-wa">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th width="40" class="text-center">No</th>
+                                    <th>Nama Grup WhatsApp</th>
+                                    <th>ID Grup WhatsApp</th>
+                                    <th width="100" class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-groups">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ===================================================================
      JAVASCRIPT LOGIC
      =================================================================== -->
 <script>
 $(document).ready(function () {
     $('.select2').select2({ theme: 'bootstrap4' });
+
+    // Tarik Daftar Grup WA dari Fonnte
+    $('#btn-fetch-groups').on('click', function () {
+        const token = $('#api_token').val();
+        if (!token) {
+            Swal.fire('Token Kosong', 'Silakan isi Token API Fonnte terlebih dahulu sebelum menarik daftar grup.', 'warning');
+            return;
+        }
+
+        $('#modal-pilih-grup').modal('show');
+        $('#loading-groups').removeClass('d-none');
+        $('#content-groups').addClass('d-none');
+
+        $.ajax({
+            url: base_url + 'cbtwa/get_groups',
+            type: 'GET',
+            dataType: 'json',
+            success: function (res) {
+                $('#loading-groups').addClass('d-none');
+                $('#content-groups').removeClass('d-none');
+
+                let rows = '';
+                const groups = res.data || res;
+                if (Array.isArray(groups) && groups.length > 0) {
+                    groups.forEach(function (g, idx) {
+                        const gId = g.id || g.jid || '';
+                        const gName = g.name || g.subject || 'Grup Tanpa Nama';
+                        rows += `
+                            <tr>
+                                <td class="text-center align-middle">${idx + 1}</td>
+                                <td class="font-weight-bold align-middle text-dark"><i class="fas fa-users text-primary mr-1"></i>${gName}</td>
+                                <td class="align-middle text-xs"><code>${gId}</code></td>
+                                <td class="text-center align-middle">
+                                    <button type="button" class="btn btn-sm btn-success btn-select-group" data-id="${gId}" data-name="${gName}">
+                                        <i class="fas fa-check mr-1"></i>Pilih
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    rows = `<tr><td colspan="4" class="text-center py-4 text-muted">Tidak ditemukan grup WhatsApp atau device belum tergabung dalam grup manapun. Pastikan nomor WhatsApp bot sudah dimasukkan ke dalam grup sekolah.</td></tr>`;
+                }
+                $('#tbody-groups').html(rows);
+            },
+            error: function () {
+                $('#loading-groups').addClass('d-none');
+                $('#content-groups').removeClass('d-none');
+                $('#tbody-groups').html(`<tr><td colspan="4" class="text-center py-4 text-danger">Gagal menghubungi API Fonnte. Pastikan token benar dan nomor WhatsApp terhubung.</td></tr>`);
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-select-group', function () {
+        const id = $(this).data('id');
+        const name = $(this).data('name');
+        $('#target_group').val(id);
+        $('#modal-pilih-grup').modal('hide');
+        toastr.success('Grup "' + name + '" dipilih!');
+    });
 
     // Salin Webhook URL
     $('#btn-copy-webhook').on('click', function () {
