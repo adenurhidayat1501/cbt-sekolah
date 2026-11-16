@@ -1,6 +1,10 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
+if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet', false) && file_exists(APPPATH . 'libraries/PhpSpreadsheetStubs.php')) {
+    require_once APPPATH . 'libraries/PhpSpreadsheetStubs.php';
+}
+
 /**
  * Model Wa_model
  * WhatsApp Bot & Fonnte Gateway Integration
@@ -95,6 +99,9 @@ class Wa_model extends CI_Model {
 
     /**
      * Menyimpan konfigurasi WhatsApp Gateway
+     * 
+     * @param array $data
+     * @return bool
      */
     public function saveSetting($data) {
         $setting = $this->getSetting();
@@ -105,6 +112,15 @@ class Wa_model extends CI_Model {
 
     /**
      * Mencatat aktivitas log WhatsApp (mendukung karakter emoji utf8mb4)
+     * 
+     * @param string $direction
+     * @param string $sender
+     * @param string $target
+     * @param mixed $message
+     * @param string $type
+     * @param string $status
+     * @param mixed $response
+     * @return bool
      */
     public function logMessage($direction, $sender, $target, $message, $type, $status, $response) {
         @$this->db->query("SET NAMES 'utf8mb4'");
@@ -122,6 +138,9 @@ class Wa_model extends CI_Model {
 
     /**
      * Mengambil daftar log aktivitas WhatsApp terbaru
+     * 
+     * @param int $limit
+     * @return array
      */
     public function getLogs($limit = 50) {
         $this->db->order_by('id_log', 'DESC');
@@ -134,6 +153,13 @@ class Wa_model extends CI_Model {
      * 
      * Catatan: Fonnte & WhatsApp Cloud API telah resmi menonaktifkan fitur tombol interaktif (buttons).
      * Oleh karena itu, semua pesan dikirim sebagai pesan teks rapi dengan kata kunci perintah yang jelas.
+     * 
+     * @param string $target
+     * @param string $message
+     * @param string|null $url
+     * @param string|null $filename
+     * @param array|null $buttons
+     * @return array
      */
     public function sendFonnte($target, $message, $url = null, $filename = null, $buttons = null) {
         $setting = $this->getSetting();
@@ -194,7 +220,7 @@ class Wa_model extends CI_Model {
         $response = curl_exec($curl);
         $err = curl_error($curl);
         $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
+        @curl_close($curl);
 
         $is_success = ($http_code == 200 && empty($err));
         $resp_json = json_decode($response, true);
@@ -231,6 +257,8 @@ class Wa_model extends CI_Model {
 
     /**
      * Mengambil daftar grup WhatsApp yang diikuti oleh device dari API Fonnte
+     * 
+     * @return array
      */
     public function getFonnteGroups() {
         $setting = $this->getSetting();
@@ -252,7 +280,7 @@ class Wa_model extends CI_Model {
         $response = curl_exec($curl);
         $err = curl_error($curl);
         $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
+        @curl_close($curl);
 
         if ($http_code == 200 && empty($err)) {
             $data = json_decode($response, true);
@@ -268,6 +296,9 @@ class Wa_model extends CI_Model {
     /**
      * Memeriksa daftar siswa yang belum mengikuti ujian pada hari ini
      * Mengembalikan data lengkap per kelas dan mapel
+     * 
+     * @param int|string|null $id_jadwal
+     * @return array
      */
     public function getSiswaTidakUjianHariIni($id_jadwal = null) {
         $tp = $this->dashboard->getTahunActive();
@@ -370,6 +401,9 @@ class Wa_model extends CI_Model {
 
     /**
      * Memformat teks WhatsApp untuk laporan siswa belum ujian
+     * 
+     * @param array $reports
+     * @return string
      */
     public function formatAbsenMessage($reports) {
         if (empty($reports)) {
@@ -418,13 +452,16 @@ class Wa_model extends CI_Model {
 
     /**
      * Mengambil data rekapitulasi nilai untuk jadwal/mapel tertentu
+     * 
+     * @param int|string $id_jadwal
+     * @return array|null
      */
     public function getRekapNilaiData($id_jadwal) {
         $info = $this->cbt->getJadwalById($id_jadwal);
         if (!$info) return null;
 
         // Cek data di cbt_rekap_nilai jika sudah pernah disimpan
-        $rekap_saved = $this->db->get_where('cbt_rekap_nilai', ['id_jadwal' => $id_jadwal])->result();
+        $rekap_saved = $this->db->where('id_jadwal', $id_jadwal)->get('cbt_rekap_nilai')->result();
 
         $students_data = [];
         if (!empty($rekap_saved)) {
@@ -517,6 +554,9 @@ class Wa_model extends CI_Model {
 
     /**
      * Generate file Excel Rekapitulasi Nilai menggunakan PhpSpreadsheet
+     * 
+     * @param array $rekap_data
+     * @return array|null
      */
     public function generateExcelRekap($rekap_data) {
         if (!$rekap_data || empty($rekap_data['all_students'])) return null;
@@ -598,6 +638,10 @@ class Wa_model extends CI_Model {
 
     /**
      * Memformat teks WhatsApp untuk laporan rekap nilai mapel
+     * 
+     * @param array $rekap_data
+     * @param string|null $excel_url
+     * @return string
      */
     public function formatRekapMessage($rekap_data, $excel_url = null) {
         if (!$rekap_data) {

@@ -322,7 +322,4 @@ class Cbtwa extends CI_Controller {
 
         $this->output_json(['status' => true, 'message' => 'Command processed']);
     }
-
-        $this->output_json(['status' => true, 'message' => 'Command processed']);
-    }
 }

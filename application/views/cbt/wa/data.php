@@ -3,6 +3,21 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /**
  * View WhatsApp Bot & Fonnte Gateway Integration
  * SMP Negeri Satu Atap 2 Cipatujah (SADUCI CBT)
+ *
+ * @var string $judul
+ * @var string $subjudul
+ * @var object $setting
+ * @var object $wa_setting
+ * @var string $webhook_url
+ * @var object $tp_active
+ * @var object $smt_active
+ * @var array $jadwals
+ * @var int $total_unattended
+ * @var array $unattended_reports
+ * @var array $logs
+ * @var object $user
+ * @var object|null $profile
+ * @var object|null $guru
  */
 $is_connected = !empty($wa_setting->api_token);
 $has_group = !empty($wa_setting->target_group);
