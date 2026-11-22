@@ -68,7 +68,15 @@ echo.
 echo [*] Menggunakan repository: %REPO_URL%
 echo [*] Menyiapkan repository lokal...
 
-:: 4. Initialize Git if not initialized
+:: 4. Safety check: pastikan folder inti CodeIgniter (system/) ada
+if not exist "system\core\CodeIgniter.php" (
+    echo [ERROR] Folder 'system\core\CodeIgniter.php' tidak ditemukan!
+    echo Push dibatalkan agar tidak menghapus folder 'system/' di GitHub dan VPS.
+    pause
+    exit /b 1
+)
+
+:: 5. Initialize Git if not initialized
 if not exist ".git" (
     git init
     echo [OK] Git repository berhasil diinisialisasi.

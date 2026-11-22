@@ -109,6 +109,14 @@ if [ "$OLD_COMMIT" = "$NEW_COMMIT" ] && [ "$FORCE_SYNC" = false ]; then
     exit 0
 fi
 
+# Safety Guard: cegah update jika repo GitHub kehilangan folder inti CodeIgniter (system/)
+if ! git cat-file -e "origin/$GIT_BRANCH:system/core/CodeIgniter.php" 2>/dev/null; then
+    echo -e "${RED}${BOLD}[ERROR] Commit di origin/$GIT_BRANCH tidak memiliki folder 'system/' CodeIgniter!${NC}"
+    echo -e "${YELLOW}Update dibatalkan otomatis agar website tidak rusak/503.${NC}"
+    echo -e "Pastikan folder 'system/' sudah ada dan ikut di-push ke GitHub terlebih dahulu."
+    exit 1
+fi
+
 # Catat daftar file yang berubah sebelum reset
 CHANGED_FILES=""
 if [ -n "$OLD_COMMIT" ] && [ "$OLD_COMMIT" != "$NEW_COMMIT" ]; then
