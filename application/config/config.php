@@ -196,7 +196,8 @@ $config['csrf_exclude_uris'] = array(
     'auth/cek_login_qr',
     'auth/qr_login',
     'cbtwa/.*',
-    'cbtlive/.*'
+    'cbtlive/.*',
+    'exambro/.*'
 );
 
 /*

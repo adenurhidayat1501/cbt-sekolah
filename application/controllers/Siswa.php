@@ -740,7 +740,47 @@ class Siswa extends CI_Controller
         $this->load->view('members/siswa/templates/footer');
     }
 
+    private function enforce_exambro_if_required($json_mode = false) {
+        $this->load->model('Exambro_model', 'exambro');
+        $ex = $this->exambro->getSetting();
+        if (empty($ex->require_exambro)) {
+            return;
+        }
+        if ($this->exambro->isExambroUserAgent()) {
+            return;
+        }
+
+        if ($json_mode) {
+            $this->output_json([
+                'token' => false,
+                'token_msg' => 'Ujian wajib diakses menggunakan aplikasi resmi Saduci Exambro Android.',
+                'support' => false,
+                'izinkan' => false,
+            ]);
+            exit();
+        }
+
+        $dlUrl = trim($ex->apk_download_url ?? '');
+        $dlBtn = $dlUrl !== ''
+            ? '<a href="' . htmlspecialchars($dlUrl, ENT_QUOTES, 'UTF-8') . '" style="display:inline-block;margin-top:16px;padding:12px 22px;background:#0284c7;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;">⬇️ Unduh Aplikasi Saduci Exambro</a>'
+            : '';
+
+        header('HTTP/1.1 403 Forbidden');
+        echo '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+           . '<title>Wajib Saduci Exambro</title></head>'
+           . '<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;font-family:system-ui,-apple-system,sans-serif;padding:20px;color:#f8fafc;">'
+           . '<div style="max-width:440px;width:100%;background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px;text-align:center;">'
+           . '<div style="font-size:48px;margin-bottom:8px;">🛡️</div>'
+           . '<h2 style="margin:0 0 10px;color:#38bdf8;">Wajib Aplikasi Saduci Exambro</h2>'
+           . '<p style="margin:0;color:#cbd5e1;font-size:14px;line-height:1.6;">Mode keamanan ujian aktif. Halaman ujian tidak dapat dibuka melalui browser biasa (Chrome/Safari/dll). Silakan tutup browser ini dan masuk melalui aplikasi resmi <b>Saduci Exambro</b>.</p>'
+           . $dlBtn
+           . '<div style="margin-top:18px;"><a href="' . base_url('siswa/cbt') . '" style="color:#94a3b8;font-size:13px;">← Kembali ke Daftar Ujian</a></div>'
+           . '</div></body></html>';
+        exit();
+    }
+
     public function konfirmasi($id_jadwal){
+        $this->enforce_exambro_if_required(false);
         $this->load->model('Master_model', 'master');
         $this->load->model('Dashboard_model', 'dashboard');
         $this->load->model('Cbt_model', 'cbt');
@@ -825,6 +865,7 @@ class Siswa extends CI_Controller
     }
 
     public function validasiSiswa() {
+        $this->enforce_exambro_if_required(true);
         $id_jadwal = $this->input->post('jadwal');
         $id_siswa = $this->input->post('siswa');
         $id_bank = $this->input->post('bank');
@@ -1104,6 +1145,7 @@ class Siswa extends CI_Controller
     }
 
     public function penilaian($id_jadwal) {
+        $this->enforce_exambro_if_required(false);
         $this->load->model('Dashboard_model', 'dashboard');
         $this->load->model('Cbt_model', 'cbt');
 

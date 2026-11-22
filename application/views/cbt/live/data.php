@@ -128,14 +128,36 @@ defined('BASEPATH') or exit('No direct script access allowed');
             <!-- ===================================================================
                  WIDGET 1B: KONTROL & MONITORING APLIKASI SADUCI EXAMBRO
                  =================================================================== -->
+            <?php
+            $ex_set = isset($exambro_setting) ? $exambro_setting : (object)[
+                'require_exambro' => 0,
+                'custom_exit_code' => '',
+                'min_version' => '1.0.0',
+                'apk_download_url' => '',
+                'alarm_enabled' => 1,
+                'snapshot_enabled' => 0,
+                'snapshot_interval_min' => 3,
+                'wa_alert_enabled' => 1,
+                'wa_cpu_threshold' => 85,
+            ];
+            $active_exit = isset($active_exit_code) ? $active_exit_code : ('SDC' . date('dm'));
+            ?>
             <div class="card card-outline card-dark my-shadow mb-4">
                 <div class="card-header border-0 py-2">
                     <div class="d-flex justify-content-between align-items-center w-100">
                         <h6 class="card-title font-weight-bold m-0 text-dark">
-                            <i class="fas fa-mobile-alt text-info mr-2"></i>Kontrol & Monitoring Aplikasi Saduci Exambro (Android)
+                            <i class="fas fa-mobile-alt text-info mr-2"></i>Kontrol &amp; Monitoring Aplikasi Saduci Exambro (Android)
                         </h6>
                         <div class="card-tools d-flex align-items-center">
-                            <span class="badge badge-info px-2 py-1 mr-2">API Aktif: /exambro/*</span>
+                            <span class="badge <?= !empty($ex_set->require_exambro) ? 'badge-success' : 'badge-secondary' ?> px-2 py-1 mr-2" id="badge-wajib-exambro">
+                                <?= !empty($ex_set->require_exambro) ? '🔒 Wajib Exambro: ON' : '🔓 Wajib Exambro: OFF' ?>
+                            </span>
+                            <span class="badge <?= !empty($ex_set->snapshot_enabled) ? 'badge-primary' : 'badge-light border' ?> px-2 py-1 mr-2" id="badge-snapshot-status">
+                                <?= !empty($ex_set->snapshot_enabled) ? '📸 Snapshot: ON' : '📸 Snapshot: OFF' ?>
+                            </span>
+                            <button type="button" class="btn btn-xs btn-outline-primary mr-2" data-toggle="collapse" data-target="#collapse-exambro-settings">
+                                <i class="fas fa-sliders-h mr-1"></i>Atur Kontrol
+                            </button>
                             <button type="button" class="btn btn-tool" data-card-widget="collapse">
                                 <i class="fas fa-minus"></i>
                             </button>
@@ -144,25 +166,25 @@ defined('BASEPATH') or exit('No direct script access allowed');
                 </div>
                 <div class="card-body pt-1 pb-3">
                     <div class="row align-items-center">
-                        <!-- Kode Keluar Harian & Darurat -->
+                        <!-- Kode Keluar Aktif & Darurat -->
                         <div class="col-12 col-lg-5 mb-2 mb-lg-0">
                             <div class="p-3 rounded border bg-light h-100">
                                 <div class="text-xs font-weight-bold text-uppercase text-muted mb-2">
-                                    <i class="fas fa-key text-danger mr-1"></i>Kode Keluar Pengawas (Untuk Buka Kunci HP Siswa)
+                                    <i class="fas fa-key text-danger mr-1"></i>Kode Keluar Pengawas (Buka Kunci HP Siswa)
                                 </div>
                                 <div class="d-flex flex-wrap align-items-center mb-2">
-                                    <span class="text-sm mr-2">Kode Harian:</span>
-                                    <span class="badge badge-danger px-2 py-1 mr-1" style="font-size: 0.95rem;" id="exambro-daily-code">SDC<?= date('dm') ?></span>
-                                    <button type="button" class="btn btn-xs btn-outline-danger btn-copy-code mr-2" data-code="SDC<?= date('dm') ?>" title="Salin Kode Harian">
+                                    <span class="text-sm mr-2">Kode Aktif:</span>
+                                    <span class="badge badge-danger px-2 py-1 mr-1" style="font-size: 0.95rem;" id="exambro-daily-code"><?= htmlspecialchars($active_exit) ?></span>
+                                    <button type="button" class="btn btn-xs btn-outline-danger btn-copy-code mr-2" id="btn-copy-active-exit" data-code="<?= htmlspecialchars($active_exit) ?>" title="Salin Kode Keluar Aktif">
                                         <i class="far fa-copy"></i> Salin
                                     </button>
                                 </div>
                                 <div class="text-xs text-muted">
-                                    PIN Cepat Offline: <code class="font-weight-bold text-dark">992811</code>
-                                    &nbsp;|&nbsp; Master Darurat: <code class="font-weight-bold text-dark">SADUCI-EMERGENCY-2026</code>
+                                    PIN Darurat Offline: <code class="font-weight-bold text-dark">992811</code>
+                                    &nbsp;|&nbsp; Master: <code class="font-weight-bold text-dark">SADUCI-EMERGENCY-2026</code>
                                 </div>
                                 <div class="text-xs text-info mt-1">
-                                    <i class="fas fa-info-circle mr-1"></i>Buka dialog pengawas di HP siswa: <b>Tap ikon 🔒 5x</b> di pojok kiri atas atau tekan <b>Back</b>.
+                                    <i class="fas fa-info-circle mr-1"></i>Menu pengawas di HP: <b>Tap 🔒 5x</b> / <b>Back</b> — atau klik tombol <b>Remote HP</b> di tabel siswa.
                                 </div>
                             </div>
                         </div>
@@ -170,39 +192,110 @@ defined('BASEPATH') or exit('No direct script access allowed');
                         <!-- Statistik & Filter Cepat Exambro -->
                         <div class="col-12 col-lg-7">
                             <div class="row">
-                                <div class="col-4 mb-2 mb-sm-0">
+                                <div class="col-6 col-sm-3 mb-2 mb-sm-0">
                                     <div class="p-2 rounded border border-success bg-white text-center h-100">
-                                        <span class="text-xs font-weight-bold text-success text-uppercase d-block">Pakai Exambro</span>
+                                        <span class="text-xs font-weight-bold text-success text-uppercase d-block">Exambro</span>
                                         <h4 class="font-weight-bold text-success m-0" id="stat-exambro-ok">0</h4>
-                                        <small class="text-muted">Perangkat resmi</small>
+                                        <small class="text-muted">Resmi</small>
                                     </div>
                                 </div>
-                                <div class="col-4 mb-2 mb-sm-0">
+                                <div class="col-6 col-sm-3 mb-2 mb-sm-0">
+                                    <div class="p-2 rounded border border-info bg-white text-center h-100">
+                                        <span class="text-xs font-weight-bold text-info text-uppercase d-block">Belum Pin</span>
+                                        <h4 class="font-weight-bold text-info m-0" id="stat-exambro-unpinned">0</h4>
+                                        <small class="text-muted">Home bebas</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-sm-3">
                                     <div class="p-2 rounded border border-warning bg-white text-center h-100">
-                                        <span class="text-xs font-weight-bold text-warning text-uppercase d-block">Bukan Exambro</span>
+                                        <span class="text-xs font-weight-bold text-warning text-uppercase d-block">Non-App</span>
                                         <h4 class="font-weight-bold text-warning m-0" id="stat-exambro-warn">0</h4>
-                                        <small class="text-muted">Browser biasa</small>
+                                        <small class="text-muted">Browser lain</small>
                                     </div>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-6 col-sm-3">
                                     <div class="p-2 rounded border border-danger bg-white text-center h-100">
-                                        <span class="text-xs font-weight-bold text-danger text-uppercase d-block">Pindah Layar</span>
+                                        <span class="text-xs font-weight-bold text-danger text-uppercase d-block">Pelanggaran</span>
                                         <h4 class="font-weight-bold text-danger m-0" id="stat-exambro-viol">0</h4>
-                                        <small class="text-muted">Total pelanggaran</small>
+                                        <small class="text-muted">Pindah layar</small>
                                     </div>
                                 </div>
                             </div>
                             <div class="mt-2 d-flex flex-wrap align-items-center justify-content-between">
                                 <div class="btn-group btn-group-xs" role="group">
-                                    <button type="button" class="btn btn-xs btn-secondary btn-exambro-filter active" data-filter="all">Semua Siswa</button>
+                                    <button type="button" class="btn btn-xs btn-secondary btn-exambro-filter active" data-filter="all">Semua</button>
+                                    <button type="button" class="btn btn-xs btn-outline-info btn-exambro-filter" data-filter="unpinned">Belum Pin Home</button>
                                     <button type="button" class="btn btn-xs btn-outline-warning btn-exambro-filter" data-filter="non_exambro">Bukan Exambro</button>
                                     <button type="button" class="btn btn-xs btn-outline-danger btn-exambro-filter" data-filter="violations">Ada Pelanggaran</button>
                                 </div>
                                 <small class="text-muted mt-1 mt-sm-0">
-                                    <i class="fas fa-battery-three-quarters text-success mr-1"></i>Baterai &amp; sinyal HP otomatis tampil di kolom <b>IP / Device</b>
+                                    <i class="fas fa-camera text-primary mr-1"></i>Klik tombol <b>Atur Kontrol</b> untuk ubah kebijakan &amp; kode keluar
                                 </small>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Panel Pengaturan Exambro (Collapsible) -->
+                    <div class="collapse mt-3 pt-3 border-top" id="collapse-exambro-settings">
+                        <form id="form-exambro-setting">
+                            <div class="row">
+                                <div class="col-md-3 mb-2">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="chk-require-exambro" name="require_exambro" value="1" <?= !empty($ex_set->require_exambro) ? 'checked' : '' ?>>
+                                        <label class="custom-control-label font-weight-bold text-sm" for="chk-require-exambro">Wajib Pakai Exambro</label>
+                                    </div>
+                                    <small class="text-muted d-block">Blokir Chrome/browser biasa masuk halaman soal.</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="chk-alarm-enabled" name="alarm_enabled" value="1" <?= !empty($ex_set->alarm_enabled) ? 'checked' : '' ?>>
+                                        <label class="custom-control-label font-weight-bold text-sm" for="chk-alarm-enabled">Alarm Pelanggaran HP</label>
+                                    </div>
+                                    <small class="text-muted d-block">Bunyikan sirine beep saat siswa keluar layar.</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="chk-snapshot-enabled" name="snapshot_enabled" value="1" <?= !empty($ex_set->snapshot_enabled) ? 'checked' : '' ?>>
+                                        <label class="custom-control-label font-weight-bold text-sm" for="chk-snapshot-enabled">Auto-Snapshot Kamera Depan</label>
+                                    </div>
+                                    <small class="text-muted d-block">Foto ringan ~20KB berkala &amp; saat pelanggaran.</small>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <div class="custom-control custom-switch">
+                                        <input type="checkbox" class="custom-control-input" id="chk-wa-alert" name="wa_alert_enabled" value="1" <?= !empty($ex_set->wa_alert_enabled) ? 'checked' : '' ?>>
+                                        <label class="custom-control-label font-weight-bold text-sm" for="chk-wa-alert">Notif WA Pelanggaran &amp; VPS</label>
+                                    </div>
+                                    <small class="text-muted d-block">Kirim WA otomatis (Fonnte) jika pelanggaran 3x / server padat.</small>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-3 mb-2">
+                                    <label class="text-xs font-weight-bold text-muted mb-1">Kode Keluar Kustom (Opsional)</label>
+                                    <input type="text" class="form-control form-control-sm" name="custom_exit_code" id="inp-custom-exit" value="<?= htmlspecialchars($ex_set->custom_exit_code ?? '') ?>" placeholder="Kosong = SDC<?= date('dm') ?>">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="text-xs font-weight-bold text-muted mb-1">Interval Foto (Menit)</label>
+                                    <input type="number" min="1" max="30" class="form-control form-control-sm" name="snapshot_interval_min" value="<?= intval($ex_set->snapshot_interval_min ?? 3) ?>">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="text-xs font-weight-bold text-muted mb-1">Batas WA CPU/RAM (%)</label>
+                                    <input type="number" min="50" max="99" class="form-control form-control-sm" name="wa_cpu_threshold" value="<?= intval($ex_set->wa_cpu_threshold ?? 85) ?>">
+                                </div>
+                                <div class="col-md-2 mb-2">
+                                    <label class="text-xs font-weight-bold text-muted mb-1">Versi Min. APK</label>
+                                    <input type="text" class="form-control form-control-sm" name="min_version" value="<?= htmlspecialchars($ex_set->min_version ?? '1.0.0') ?>" placeholder="1.0.0">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <label class="text-xs font-weight-bold text-muted mb-1">Link Unduh APK Terbaru</label>
+                                    <input type="url" class="form-control form-control-sm" name="apk_download_url" value="<?= htmlspecialchars($ex_set->apk_download_url ?? '') ?>" placeholder="https://...">
+                                </div>
+                            </div>
+                            <div class="text-right mt-2">
+                                <button type="submit" class="btn btn-sm btn-primary" id="btn-save-exambro-setting">
+                                    <i class="fas fa-save mr-1"></i>Simpan Pengaturan Exambro
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -752,6 +845,7 @@ $(document).ready(function () {
         $('#stat-belum').text(sum.belum_mulai);
         $('#stat-reset').text(sum.perlu_reset);
         $('#stat-exambro-ok').text(sum.using_exambro || 0);
+        $('#stat-exambro-unpinned').text(sum.unpinned_exambro || 0);
         $('#stat-exambro-warn').text(sum.non_exambro || 0);
         $('#stat-exambro-viol').text(sum.total_violations || 0);
         $('#section-summary-cards').removeClass('d-none');
@@ -772,9 +866,11 @@ $(document).ready(function () {
 
         let filteredCount = 0;
         students.forEach(function (s, idx) {
-            // Filter cepat Exambro / Pelanggaran
+            // Filter cepat Exambro / Pin Home / Pelanggaran
             if (currentExambroFilter === 'non_exambro') {
                 if (s.user_agent === '-' || s.is_exambro) return;
+            } else if (currentExambroFilter === 'unpinned') {
+                if (!s.is_exambro || s.is_screen_pinned !== false) return;
             } else if (currentExambroFilter === 'violations') {
                 if (!s.tab_switch_count || s.tab_switch_count <= 0) return;
             }
@@ -811,7 +907,7 @@ $(document).ready(function () {
                 </div>
             `;
 
-            // Tombol Aksi
+            // Tombol Aksi + Remote Exambro
             let actionButtons = `
                 <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-warning btn-act-reset" data-id="${s.id_siswa}" data-nama="${s.nama}" title="Reset Login Siswa">
@@ -823,6 +919,19 @@ $(document).ready(function () {
                     <a href="${base_url}cbtstatus/detail?siswa=${s.id_siswa}&jadwal=${$('#select-jadwal').val()}" target="_blank" class="btn btn-outline-info" title="Lihat Lembar Jawaban">
                         <i class="fas fa-eye"></i>
                     </a>
+                    ${s.is_exambro ? `
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-dark dropdown-toggle" data-toggle="dropdown" title="Kontrol Jarak Jauh HP Siswa">
+                            <i class="fas fa-mobile-alt"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right">
+                            <a class="dropdown-item btn-remote-cmd" href="#" data-cmd="WARN" data-id="${s.id_siswa}" data-nama="${s.nama}"><i class="fas fa-bullhorn text-warning mr-2"></i>Kirim Peringatan</a>
+                            <a class="dropdown-item btn-remote-cmd" href="#" data-cmd="SNAPSHOT" data-id="${s.id_siswa}" data-nama="${s.nama}"><i class="fas fa-camera text-primary mr-2"></i>Ambil Foto Sekarang</a>
+                            <a class="dropdown-item btn-remote-cmd" href="#" data-cmd="RELOAD" data-id="${s.id_siswa}" data-nama="${s.nama}"><i class="fas fa-sync text-info mr-2"></i>Reload Halaman HP</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item btn-remote-cmd text-danger" href="#" data-cmd="UNLOCK" data-id="${s.id_siswa}" data-nama="${s.nama}"><i class="fas fa-unlock-alt mr-2"></i>Buka Kunci Exambro</a>
+                        </div>
+                    </div>` : ''}
                 </div>
             `;
 
@@ -852,7 +961,14 @@ $(document).ready(function () {
                     </td>
                     <td class="text-center align-middle text-xs">
                         ${s.is_exambro
-                            ? `<span class="badge badge-success px-2 py-1 mb-1 d-inline-block"><i class="fas fa-shield-alt mr-1"></i>Saduci Exambro</span>`
+                            ? `<div class="mb-1">
+                                 <span class="badge badge-success px-2 py-1 d-inline-block"><i class="fas fa-shield-alt mr-1"></i>Saduci Exambro</span>
+                                 ${s.is_screen_pinned === true
+                                     ? `<span class="badge badge-info px-1 py-1 ml-1" title="Tombol Home terkunci (Screen Pinning Aktif)">📌 Pin</span>`
+                                     : s.is_screen_pinned === false
+                                     ? `<span class="badge badge-danger px-1 py-1 ml-1" title="Tombol Home belum dikunci">🔓 No Pin</span>`
+                                     : ''}
+                               </div>`
                             : s.user_agent !== '-'
                             ? `<span class="badge badge-warning px-2 py-1 mb-1 d-inline-block" title="Bukan Exambro resmi!"><i class="fas fa-exclamation-triangle mr-1"></i>Bukan Exambro</span>`
                             : ''}
@@ -868,6 +984,13 @@ $(document).ready(function () {
                                    ${s.exambro_charging ? '⚡' : '🔋'} ${s.exambro_battery}%
                                  </span>
                                  <span class="badge badge-light border">${s.exambro_network || '-'}</span>
+                               </div>`
+                            : ''}
+                        ${s.snapshot && s.snapshot.exists
+                            ? `<div class="mb-1">
+                                 <button type="button" class="btn btn-xs btn-outline-primary btn-view-snapshot" data-url="${s.snapshot.url}" data-nama="${s.nama}" data-time="${s.snapshot.updated_at}" data-device="${s.exambro_device_name || ''}">
+                                   <i class="fas fa-camera mr-1"></i>Foto (${s.snapshot.updated_at})
+                                 </button>
                                </div>`
                             : ''}
                         <small class="text-muted d-block">${s.ip_address}</small>
@@ -1145,6 +1268,122 @@ $(document).ready(function () {
                     }
                 });
             }
+        });
+    });
+    // ===================================================================
+    // SIMPAN PENGATURAN KONTROL EXAMBRO
+    // ===================================================================
+    $('#form-exambro-setting').on('submit', function (e) {
+        e.preventDefault();
+        const btn = $('#btn-save-exambro-setting');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Menyimpan...');
+
+        $.ajax({
+            url: base_url + 'exambro/save_setting',
+            type: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function (res) {
+                btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Pengaturan Exambro');
+                if (res && res.status) {
+                    toastr.success(res.message);
+                    if (res.active_exit_code) {
+                        $('#exambro-daily-code').text(res.active_exit_code);
+                        $('#info-exambro-exit').text(res.active_exit_code);
+                        $('#btn-copy-active-exit').data('code', res.active_exit_code);
+                    }
+                    const reqOn = $('#chk-require-exambro').is(':checked');
+                    $('#badge-wajib-exambro')
+                        .toggleClass('badge-success', reqOn)
+                        .toggleClass('badge-secondary', !reqOn)
+                        .text(reqOn ? '🔒 Wajib Exambro: ON' : '🔓 Wajib Exambro: OFF');
+                    const snapOn = $('#chk-snapshot-enabled').is(':checked');
+                    $('#badge-snapshot-status')
+                        .toggleClass('badge-primary', snapOn)
+                        .toggleClass('badge-light border', !snapOn)
+                        .text(snapOn ? '📸 Snapshot: ON' : '📸 Snapshot: OFF');
+                } else {
+                    toastr.error(res?.message || 'Gagal menyimpan pengaturan Exambro');
+                }
+            },
+            error: function () {
+                btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Pengaturan Exambro');
+                toastr.error('Terjadi kesalahan koneksi saat menyimpan pengaturan.');
+            }
+        });
+    });
+
+    // ===================================================================
+    // REMOTE COMMAND PENGAWAS KE HP SISWA (WARN / SNAPSHOT / RELOAD / UNLOCK)
+    // ===================================================================
+    $(document).on('click', '.btn-remote-cmd', function (e) {
+        e.preventDefault();
+        const cmd = $(this).data('cmd');
+        const idSiswa = $(this).data('id');
+        const nama = $(this).data('nama');
+        const idJadwal = $('#select-jadwal').val();
+
+        const sendCmd = function (msg) {
+            $.ajax({
+                url: base_url + 'exambro/send_command',
+                type: 'POST',
+                data: { id_siswa: idSiswa, id_jadwal: idJadwal, command: cmd, message: msg || '' },
+                dataType: 'json',
+                success: function (res) {
+                    if (res && res.status) {
+                        toastr.success(res.message);
+                    } else {
+                        toastr.error(res?.message || 'Gagal mengirim perintah');
+                    }
+                },
+                error: function () {
+                    toastr.error('Gagal menghubungi server.');
+                }
+            });
+        };
+
+        if (cmd === 'WARN') {
+            Swal.fire({
+                title: '📢 Kirim Peringatan ke ' + nama,
+                input: 'text',
+                inputValue: 'Mohon tetap fokus pada layar ujian dan jangan menengok!',
+                showCancelButton: true,
+                confirmButtonText: 'Kirim Peringatan',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) sendCmd(result.value);
+            });
+        } else if (cmd === 'UNLOCK') {
+            Swal.fire({
+                title: '🔓 Buka Kunci HP ' + nama + '?',
+                text: 'Kunci Kiosk & Pin Home di HP siswa akan dilepas dari jarak jauh pada heartbeat berikutnya.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                confirmButtonText: 'Ya, Buka Kunci',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) sendCmd('Kunci dibuka oleh pengawas dari jarak jauh.');
+            });
+        } else {
+            sendCmd('');
+        }
+    });
+
+    // ===================================================================
+    // PREVIEW SNAPSHOT FOTO KAMERA DEPAN SISWA
+    // ===================================================================
+    $(document).on('click', '.btn-view-snapshot', function () {
+        const url = $(this).data('url');
+        const nama = $(this).data('nama');
+        const time = $(this).data('time');
+        const device = $(this).data('device');
+        Swal.fire({
+            title: '📸 ' + nama,
+            text: (device ? device + ' • ' : '') + 'Diambil pukul ' + time,
+            imageUrl: url,
+            imageAlt: 'Snapshot Siswa',
+            confirmButtonText: 'Tutup'
         });
     });
 });

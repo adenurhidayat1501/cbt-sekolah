@@ -30,6 +30,7 @@ class Cbtlive extends CI_Controller {
         $this->load->model('Dashboard_model', 'dashboard');
         $this->load->model('Cbt_model', 'cbt');
         $this->load->model('Dropdown_model', 'dropdown');
+        $this->load->model('Exambro_model', 'exambro');
     }
 
     public function output_json($data, $encode = true) {
@@ -89,6 +90,8 @@ class Cbtlive extends CI_Controller {
         $data['today_jadwals'] = $today_jadwals;
         $data['other_jadwals'] = $other_jadwals;
         $data['kelases'] = $this->dropdown->getAllKelas($tp->id_tp, $smt->id_smt);
+        $data['exambro_setting'] = $this->exambro->getSetting();
+        $data['active_exit_code'] = $this->exambro->getActiveExitCode();
 
         if ($this->ion_auth->is_admin()) {
             $data['profile'] = $this->dashboard->getProfileAdmin($user->id);
@@ -283,6 +286,7 @@ class Cbtlive extends CI_Controller {
         $count_reset = 0;
         $count_exambro = 0;
         $count_non_exambro = 0;
+        $count_unpinned = 0;
         $count_total_violations = 0;
 
         $durasi_menit_jadwal = intval($info->durasi_ujian);
@@ -309,6 +313,7 @@ class Cbtlive extends CI_Controller {
             $exambro_network = null;
             $exambro_device_name = null;
             $exambro_os = null;
+            $is_screen_pinned = null;
             $exambro_telemetry = '';
             $detected_exambro_desc = false;
 
@@ -337,6 +342,11 @@ class Cbtlive extends CI_Controller {
                     $exambro_os = isset($md[2]) ? trim($md[2]) : null;
                 }
 
+                // Ekstrak status Kunci Tombol Home (Screen Pinning)
+                if (preg_match('/\[Pin:\s*(AKTIF|BELUM)\]/i', $desc, $mp)) {
+                    $is_screen_pinned = (strtoupper($mp[1]) === 'AKTIF');
+                }
+
                 // Ekstrak telemetri Exambro (baterai & jaringan) dari heartbeat
                 if (preg_match('/\[Bat:\s*(\d+)%\s*\(([^)]+)\)\s*\|\s*Net:\s*([^\]]+)\]/i', $desc, $m)) {
                     $exambro_battery = intval($m[1]);
@@ -357,11 +367,15 @@ class Cbtlive extends CI_Controller {
             if ($user_agent !== '-') {
                 if ($is_exambro) {
                     $count_exambro++;
+                    if ($is_screen_pinned === false) {
+                        $count_unpinned++;
+                    }
                 } else {
                     $count_non_exambro++;
                 }
             }
             $count_total_violations += $tab_switch_count;
+            $snapshot_info = $this->exambro->getSnapshotInfo($id_jadwal, $s->id_siswa);
 
             if ($dur == null) {
                 $status_code = 0;
@@ -438,12 +452,14 @@ class Cbtlive extends CI_Controller {
                 'ip_address' => $ip_address,
                 'user_agent' => $user_agent,
                 'is_exambro' => $is_exambro,
+                'is_screen_pinned' => $is_screen_pinned,
                 'exambro_device_name' => $exambro_device_name,
                 'exambro_os' => $exambro_os,
                 'exambro_battery' => $exambro_battery,
                 'exambro_charging' => $exambro_charging,
                 'exambro_network' => $exambro_network,
                 'exambro_telemetry' => $exambro_telemetry,
+                'snapshot' => $snapshot_info,
                 'tab_switch_count' => $tab_switch_count,
             ];
         }
@@ -469,6 +485,7 @@ class Cbtlive extends CI_Controller {
                 'perlu_reset' => $count_reset,
                 'using_exambro' => $count_exambro,
                 'non_exambro' => $count_non_exambro,
+                'unpinned_exambro' => $count_unpinned,
                 'total_violations' => $count_total_violations,
             ],
             'exambro_security' => [
@@ -595,6 +612,9 @@ class Cbtlive extends CI_Controller {
             'live_students' => $active_students,
             'uptime' => $uptime_str,
         ];
+
+        // Cek & kirim notifikasi WA otomatis jika CPU/RAM VPS melebihi ambang batas (cooldown 15 menit)
+        $this->exambro->maybeAlertServerLoad($cpu_percent, $ram_percent, $active_students);
 
         $this->output_json($response);
     }
