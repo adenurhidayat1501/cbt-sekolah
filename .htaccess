@@ -1,0 +1,19 @@
+Options -Indexes
+
+<FilesMatch "(?i)\.(sql|log|env|git.*)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php/$1 [L]
+
+# PHP Configuration (Safely wrapped so Apache won't crash if running under PHP-FPM or different MPM)
+<IfModule mod_php7.c>
+    php_value max_input_vars 10000
+</IfModule>
+<IfModule mod_php.c>
+    php_value max_input_vars 10000
+</IfModule>
