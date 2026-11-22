@@ -1,11 +1,13 @@
 <?php
-defined('BASEPATH') or exit('No direct script access allowed');
-
 /**
  * Stubs for static code analysis & IDE indexing (Intelephense / PHP Language Server)
  * when composer vendor directory is not installed or indexed in the workspace.
  * When PhpOffice is installed via Composer, these stubs are safely ignored.
  */
+
+namespace {
+    defined('BASEPATH') or exit('No direct script access allowed');
+}
 
 namespace PhpOffice\PhpSpreadsheet {
     if (!class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet', false)) {

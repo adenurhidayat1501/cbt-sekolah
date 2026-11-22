@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
-if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet', false) && file_exists(APPPATH . 'libraries/PhpSpreadsheetStubs.php')) {
+if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet', true) && file_exists(APPPATH . 'libraries/PhpSpreadsheetStubs.php')) {
     require_once APPPATH . 'libraries/PhpSpreadsheetStubs.php';
 }
 
