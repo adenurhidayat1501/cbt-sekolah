@@ -126,6 +126,88 @@ defined('BASEPATH') or exit('No direct script access allowed');
             </div>
 
             <!-- ===================================================================
+                 WIDGET 1B: KONTROL & MONITORING APLIKASI SADUCI EXAMBRO
+                 =================================================================== -->
+            <div class="card card-outline card-dark my-shadow mb-4">
+                <div class="card-header border-0 py-2">
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <h6 class="card-title font-weight-bold m-0 text-dark">
+                            <i class="fas fa-mobile-alt text-info mr-2"></i>Kontrol & Monitoring Aplikasi Saduci Exambro (Android)
+                        </h6>
+                        <div class="card-tools d-flex align-items-center">
+                            <span class="badge badge-info px-2 py-1 mr-2">API Aktif: /exambro/*</span>
+                            <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body pt-1 pb-3">
+                    <div class="row align-items-center">
+                        <!-- Kode Keluar Harian & Darurat -->
+                        <div class="col-12 col-lg-5 mb-2 mb-lg-0">
+                            <div class="p-3 rounded border bg-light h-100">
+                                <div class="text-xs font-weight-bold text-uppercase text-muted mb-2">
+                                    <i class="fas fa-key text-danger mr-1"></i>Kode Keluar Pengawas (Untuk Buka Kunci HP Siswa)
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center mb-2">
+                                    <span class="text-sm mr-2">Kode Harian:</span>
+                                    <span class="badge badge-danger px-2 py-1 mr-1" style="font-size: 0.95rem;" id="exambro-daily-code">SDC<?= date('dm') ?></span>
+                                    <button type="button" class="btn btn-xs btn-outline-danger btn-copy-code mr-2" data-code="SDC<?= date('dm') ?>" title="Salin Kode Harian">
+                                        <i class="far fa-copy"></i> Salin
+                                    </button>
+                                </div>
+                                <div class="text-xs text-muted">
+                                    PIN Cepat Offline: <code class="font-weight-bold text-dark">992811</code>
+                                    &nbsp;|&nbsp; Master Darurat: <code class="font-weight-bold text-dark">SADUCI-EMERGENCY-2026</code>
+                                </div>
+                                <div class="text-xs text-info mt-1">
+                                    <i class="fas fa-info-circle mr-1"></i>Buka dialog pengawas di HP siswa: <b>Tap ikon 🔒 5x</b> di pojok kiri atas atau tekan <b>Back</b>.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Statistik & Filter Cepat Exambro -->
+                        <div class="col-12 col-lg-7">
+                            <div class="row">
+                                <div class="col-4 mb-2 mb-sm-0">
+                                    <div class="p-2 rounded border border-success bg-white text-center h-100">
+                                        <span class="text-xs font-weight-bold text-success text-uppercase d-block">Pakai Exambro</span>
+                                        <h4 class="font-weight-bold text-success m-0" id="stat-exambro-ok">0</h4>
+                                        <small class="text-muted">Perangkat resmi</small>
+                                    </div>
+                                </div>
+                                <div class="col-4 mb-2 mb-sm-0">
+                                    <div class="p-2 rounded border border-warning bg-white text-center h-100">
+                                        <span class="text-xs font-weight-bold text-warning text-uppercase d-block">Bukan Exambro</span>
+                                        <h4 class="font-weight-bold text-warning m-0" id="stat-exambro-warn">0</h4>
+                                        <small class="text-muted">Browser biasa</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded border border-danger bg-white text-center h-100">
+                                        <span class="text-xs font-weight-bold text-danger text-uppercase d-block">Pindah Layar</span>
+                                        <h4 class="font-weight-bold text-danger m-0" id="stat-exambro-viol">0</h4>
+                                        <small class="text-muted">Total pelanggaran</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2 d-flex flex-wrap align-items-center justify-content-between">
+                                <div class="btn-group btn-group-xs" role="group">
+                                    <button type="button" class="btn btn-xs btn-secondary btn-exambro-filter active" data-filter="all">Semua Siswa</button>
+                                    <button type="button" class="btn btn-xs btn-outline-warning btn-exambro-filter" data-filter="non_exambro">Bukan Exambro</button>
+                                    <button type="button" class="btn btn-xs btn-outline-danger btn-exambro-filter" data-filter="violations">Ada Pelanggaran</button>
+                                </div>
+                                <small class="text-muted mt-1 mt-sm-0">
+                                    <i class="fas fa-battery-three-quarters text-success mr-1"></i>Baterai &amp; sinyal HP otomatis tampil di kolom <b>IP / Device</b>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================================================================
                  WIDGET 2: FILTER JADWAL HARI INI & PILIH KELAS
                  =================================================================== -->
             <div class="card card-default my-shadow mb-4">
@@ -669,8 +751,13 @@ $(document).ready(function () {
         $('#stat-selesai').text(sum.selesai);
         $('#stat-belum').text(sum.belum_mulai);
         $('#stat-reset').text(sum.perlu_reset);
+        $('#stat-exambro-ok').text(sum.using_exambro || 0);
+        $('#stat-exambro-warn').text(sum.non_exambro || 0);
+        $('#stat-exambro-viol').text(sum.total_violations || 0);
         $('#section-summary-cards').removeClass('d-none');
     }
+
+    let currentExambroFilter = 'all';
 
     // Render Tabel Siswa
     function renderTableSiswa(students) {
@@ -685,6 +772,13 @@ $(document).ready(function () {
 
         let filteredCount = 0;
         students.forEach(function (s, idx) {
+            // Filter cepat Exambro / Pelanggaran
+            if (currentExambroFilter === 'non_exambro') {
+                if (s.user_agent === '-' || s.is_exambro) return;
+            } else if (currentExambroFilter === 'violations') {
+                if (!s.tab_switch_count || s.tab_switch_count <= 0) return;
+            }
+
             // Filter pencarian client-side
             if (filterKeyword !== '') {
                 const matchName = s.nama.toLowerCase().includes(filterKeyword);
@@ -757,12 +851,25 @@ $(document).ready(function () {
                         <div class="text-xs text-muted">Sisa: <b class="text-primary">${s.sisa_waktu}</b></div>
                     </td>
                     <td class="text-center align-middle text-xs">
-                        ${s.user_agent.toLowerCase().includes('saduciexambro') || s.user_agent.toLowerCase().includes('exambro')
+                        ${s.is_exambro
                             ? `<span class="badge badge-success px-2 py-1 mb-1 d-inline-block"><i class="fas fa-shield-alt mr-1"></i>Saduci Exambro</span>`
                             : s.user_agent !== '-'
                             ? `<span class="badge badge-warning px-2 py-1 mb-1 d-inline-block" title="Bukan Exambro resmi!"><i class="fas fa-exclamation-triangle mr-1"></i>Bukan Exambro</span>`
                             : ''}
-                        <div class="text-truncate text-muted" style="max-width: 140px;" title="${s.user_agent}">${s.user_agent}</div>
+                        ${s.exambro_device_name
+                            ? `<div class="font-weight-bold text-dark mb-1" title="${s.exambro_device_name} ${s.exambro_os ? '(' + s.exambro_os + ')' : ''}">
+                                 <i class="fas fa-mobile-alt text-info mr-1"></i>${s.exambro_device_name}
+                                 ${s.exambro_os ? `<small class="text-muted d-block font-weight-normal">${s.exambro_os}</small>` : ''}
+                               </div>`
+                            : `<div class="text-truncate text-muted" style="max-width: 150px;" title="${s.user_agent}">${s.user_agent}</div>`}
+                        ${s.exambro_battery !== null && s.exambro_battery !== undefined
+                            ? `<div class="mb-1">
+                                 <span class="badge ${s.exambro_battery <= 20 && !s.exambro_charging ? 'badge-danger' : 'badge-light border'} mr-1">
+                                   ${s.exambro_charging ? '⚡' : '🔋'} ${s.exambro_battery}%
+                                 </span>
+                                 <span class="badge badge-light border">${s.exambro_network || '-'}</span>
+                               </div>`
+                            : ''}
                         <small class="text-muted d-block">${s.ip_address}</small>
                     </td>
                     <td class="text-center align-middle">${actionButtons}</td>
@@ -782,6 +889,30 @@ $(document).ready(function () {
     $('#filter-search-siswa').on('input', function () {
         if (currentRawData && currentRawData.students) {
             renderTableSiswa(currentRawData.students);
+        }
+    });
+
+    // Filter cepat Exambro / Pelanggaran
+    $(document).on('click', '.btn-exambro-filter', function () {
+        $('.btn-exambro-filter').removeClass('active btn-secondary').addClass('btn-outline-secondary');
+        $(this).removeClass('btn-outline-secondary btn-outline-warning btn-outline-danger').addClass('active btn-secondary');
+        currentExambroFilter = $(this).data('filter') || 'all';
+        if (currentRawData && currentRawData.students) {
+            renderTableSiswa(currentRawData.students);
+        }
+    });
+
+    // Salin kode keluar pengawas 1-klik
+    $(document).on('click', '.btn-copy-code', function () {
+        const code = $(this).data('code');
+        if (navigator.clipboard && code) {
+            navigator.clipboard.writeText(String(code)).then(() => {
+                if (typeof showSuccessToast === 'function') {
+                    showSuccessToast('Kode keluar disalin: ' + code);
+                } else {
+                    alert('Kode keluar disalin: ' + code);
+                }
+            });
         }
     });
 

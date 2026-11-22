@@ -167,26 +167,36 @@ class Exambro extends CI_Controller {
         $battery_level   = isset($input['battery_level']) ? round($input['battery_level'] * 100) : '-';
         $is_charging     = !empty($input['is_charging']) ? 'Charging' : 'Battery';
         $network_type    = $input['network_type'] ?? 'Unknown';
-        $device_model    = $input['device_model'] ?? 'Android Device';
-        $os_version      = $input['os_version'] ?? 'Android';
+        $device_model    = trim($input['device_model'] ?? 'Android Device');
+        $device_name     = trim($input['device_name'] ?? '');
+        $device_display  = trim($input['device_display'] ?? '');
+        $os_version      = trim($input['os_version'] ?? 'Android');
         $violation_count = intval($input['violation_count'] ?? 0);
         $app_version     = $input['app_version'] ?? '1.0.0';
 
+        // Susun nama tampilan perangkat siswa yang rapi & bebas karakter kurung siku
+        if ($device_display === '') {
+            if ($device_name !== '' && strcasecmp($device_name, $device_model) !== 0) {
+                $device_display = $device_model . ' (' . $device_name . ')';
+            } else {
+                $device_display = $device_model;
+            }
+        }
+        $clean_device = str_replace(['[', ']', '|'], '', $device_display);
+        $clean_os     = str_replace(['[', ']', '|'], '', $os_version);
+
         if (!empty($id_siswa) && !empty($id_jadwal)) {
-            // Update log_ujian yang sedang aktif
+            // Update log_ujian yang sedang aktif (simpan di log_desc agar tidak merusak validasi reset_login)
             $logKey = $id_siswa . '0' . $id_jadwal . '1';
             $existingLog = $this->db->where('id_log', $logKey)->get('log_ujian')->row();
 
-            $statusText = "Exambro v{$app_version} [Bat: {$battery_level}% ({$is_charging}) | Net: {$network_type}]";
+            $statusText = "Exambro v{$app_version} [Dev: {$clean_device} | OS: {$clean_os}] [Bat: {$battery_level}% ({$is_charging}) | Net: {$network_type}]";
             if ($violation_count > 0) {
                 $statusText .= " [Pindah Layar/Switch: {$violation_count}x]";
             }
 
             if ($existingLog) {
                 $this->db->set('log_desc', $statusText);
-                $this->db->set('device', $device_model . ' (' . $os_version . ')');
-                $this->db->set('agent', 'SaduciExambro/' . $app_version);
-                $this->db->set('address', $this->input->ip_address());
                 $this->db->where('id_log', $logKey);
                 $this->db->update('log_ujian');
             }

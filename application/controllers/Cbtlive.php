@@ -281,6 +281,9 @@ class Cbtlive extends CI_Controller {
         $count_selesai = 0;
         $count_belum = 0;
         $count_reset = 0;
+        $count_exambro = 0;
+        $count_non_exambro = 0;
+        $count_total_violations = 0;
 
         $durasi_menit_jadwal = intval($info->durasi_ujian);
 
@@ -301,6 +304,13 @@ class Cbtlive extends CI_Controller {
             $user_agent = '-';
             $tab_switch_count = 0;
             $login_reset_flag = false;
+            $exambro_battery = null;
+            $exambro_charging = false;
+            $exambro_network = null;
+            $exambro_device_name = null;
+            $exambro_os = null;
+            $exambro_telemetry = '';
+            $detected_exambro_desc = false;
 
             // Periksa logs
             foreach ($s_logs as $lg) {
@@ -315,11 +325,43 @@ class Cbtlive extends CI_Controller {
                     $waktu_selesai = date('H:i:s', strtotime($lg->log_time));
                 }
 
-                // Hitung log kecurigaan / pindah tab jika ada
-                if (stripos($lg->log_desc ?? '', 'pindah') !== false || stripos($lg->log_desc ?? '', 'switch') !== false) {
+                $desc = $lg->log_desc ?? '';
+
+                if (stripos($desc, 'Exambro') !== false) {
+                    $detected_exambro_desc = true;
+                }
+
+                // Ekstrak nama & model device siswa dari heartbeat Exambro
+                if (preg_match('/\[Dev:\s*([^|\]]+?)(?:\s*\|\s*OS:\s*([^\]]+))?\]/i', $desc, $md)) {
+                    $exambro_device_name = trim($md[1]);
+                    $exambro_os = isset($md[2]) ? trim($md[2]) : null;
+                }
+
+                // Ekstrak telemetri Exambro (baterai & jaringan) dari heartbeat
+                if (preg_match('/\[Bat:\s*(\d+)%\s*\(([^)]+)\)\s*\|\s*Net:\s*([^\]]+)\]/i', $desc, $m)) {
+                    $exambro_battery = intval($m[1]);
+                    $exambro_charging = (stripos($m[2], 'charging') !== false);
+                    $exambro_network = trim($m[3]);
+                    $exambro_telemetry = "Bat: {$exambro_battery}% (" . ($exambro_charging ? 'Charging' : 'Baterai') . ") | Net: {$exambro_network}";
+                }
+
+                // Hitung log kecurigaan / pindah layar (baik angka di log_desc heartbeat maupun baris log)
+                if (preg_match('/\[Pindah Layar\/Switch:\s*(\d+)x\]/i', $desc, $mv)) {
+                    $tab_switch_count = max($tab_switch_count, intval($mv[1]));
+                } else if (stripos($desc, 'pindah') !== false || stripos($desc, 'switch') !== false) {
                     $tab_switch_count++;
                 }
             }
+
+            $is_exambro = $detected_exambro_desc || (($user_agent !== '-') && (stripos($user_agent, 'saduciexambro') !== false || stripos($user_agent, 'exambro') !== false));
+            if ($user_agent !== '-') {
+                if ($is_exambro) {
+                    $count_exambro++;
+                } else {
+                    $count_non_exambro++;
+                }
+            }
+            $count_total_violations += $tab_switch_count;
 
             if ($dur == null) {
                 $status_code = 0;
@@ -395,6 +437,13 @@ class Cbtlive extends CI_Controller {
                 'progress' => $progress,
                 'ip_address' => $ip_address,
                 'user_agent' => $user_agent,
+                'is_exambro' => $is_exambro,
+                'exambro_device_name' => $exambro_device_name,
+                'exambro_os' => $exambro_os,
+                'exambro_battery' => $exambro_battery,
+                'exambro_charging' => $exambro_charging,
+                'exambro_network' => $exambro_network,
+                'exambro_telemetry' => $exambro_telemetry,
                 'tab_switch_count' => $tab_switch_count,
             ];
         }
@@ -418,6 +467,9 @@ class Cbtlive extends CI_Controller {
                 'selesai' => $count_selesai,
                 'belum_mulai' => $count_belum,
                 'perlu_reset' => $count_reset,
+                'using_exambro' => $count_exambro,
+                'non_exambro' => $count_non_exambro,
+                'total_violations' => $count_total_violations,
             ],
             'exambro_security' => [
                 'daily_exit_code' => 'SDC' . date('dm'),
