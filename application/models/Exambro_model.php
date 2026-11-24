@@ -62,6 +62,24 @@ class Exambro_model extends CI_Model {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
             $this->db->query($sqlCmd);
         }
+
+        if (!$this->db->table_exists('cbt_proctor_audit')) {
+            $sqlAudit = "CREATE TABLE IF NOT EXISTS `cbt_proctor_audit` (
+                `id_audit` int(11) NOT NULL AUTO_INCREMENT,
+                `created_at` datetime NOT NULL,
+                `actor_username` varchar(100) NOT NULL DEFAULT '',
+                `actor_name` varchar(150) NOT NULL DEFAULT '',
+                `actor_role` varchar(30) NOT NULL DEFAULT 'Pengawas',
+                `action` varchar(50) NOT NULL,
+                `target_label` varchar(255) NULL DEFAULT '',
+                `detail` text NULL,
+                `ip_address` varchar(45) NULL DEFAULT '',
+                PRIMARY KEY (`id_audit`),
+                KEY `idx_audit_time` (`created_at`),
+                KEY `idx_audit_action` (`action`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+            $this->db->query($sqlAudit);
+        }
     }
 
     public function getSetting() {
@@ -495,5 +513,55 @@ class Exambro_model extends CI_Model {
              . "Waktu: " . date('H:i:s') . "\n\n"
              . "_Silakan cek pengawas ruang atau pantau di /cbtlive._";
         $this->sendWaAlert($msg);
+    }
+
+    /**
+     * Catat log aktivitas pengawas / admin (Audit Trail)
+     */
+    public function logProctorAudit($action, $target_label = '', $detail = '') {
+        try {
+            $username = 'system';
+            $fullName = 'System';
+            $role = 'System';
+
+            if (isset($this->ion_auth) && $this->ion_auth->logged_in()) {
+                $u = $this->ion_auth->user()->row();
+                if ($u) {
+                    $username = $u->username ?? 'user';
+                    $fullName = trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $username;
+                }
+                $role = $this->ion_auth->is_admin() ? 'Admin' : 'Guru/Pengawas';
+            }
+
+            return $this->db->insert('cbt_proctor_audit', [
+                'created_at' => date('Y-m-d H:i:s'),
+                'actor_username' => $username,
+                'actor_name' => $fullName,
+                'actor_role' => $role,
+                'action' => strtoupper(trim((string) $action)),
+                'target_label' => substr(trim((string) $target_label), 0, 250),
+                'detail' => trim((string) $detail),
+                'ip_address' => $this->input->ip_address(),
+            ]);
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Ambil daftar riwayat aktivitas pengawas terbaru
+     */
+    public function getProctorAudits($limit = 50, $action_filter = '') {
+        $this->db->from('cbt_proctor_audit');
+        if ($action_filter !== '' && $action_filter !== 'all') {
+            if ($action_filter === 'REMOTE') {
+                $this->db->like('action', 'REMOTE_', 'after');
+            } else {
+                $this->db->where('action', strtoupper($action_filter));
+            }
+        }
+        $this->db->order_by('id_audit', 'DESC');
+        $this->db->limit(max(10, min(200, intval($limit))));
+        return $this->db->get()->result();
     }
 }

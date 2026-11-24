@@ -17,12 +17,16 @@ defined('BASEPATH') or exit('No direct script access allowed');
                     </h1>
                     <small class="text-muted">Pantau aktivitas ujian siswa, progres soal, pengawas, dan resource server secara real-time.</small>
                 </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right bg-transparent p-0 mb-0">
-                        <li class="breadcrumb-item"><a href="<?= base_url('dashboard') ?>"><i class="fas fa-home mr-1"></i>Beranda</a></li>
-                        <li class="breadcrumb-item">CBT</li>
-                        <li class="breadcrumb-item active"><?= $judul ?></li>
-                    </ol>
+                <div class="col-sm-6 text-sm-right mt-2 mt-sm-0">
+                    <button type="button" id="btn-run-preflight" class="btn btn-sm btn-success mr-1 mb-1">
+                        <i class="fas fa-clipboard-check mr-1"></i>Cek Kesiapan Ujian
+                    </button>
+                    <button type="button" id="btn-open-audit" class="btn btn-sm btn-outline-dark mr-1 mb-1" data-toggle="collapse" data-target="#card-proctor-audit">
+                        <i class="fas fa-history mr-1"></i>Log Pengawas
+                    </button>
+                    <a href="<?= base_url('cbtfoto') ?>" class="btn btn-sm btn-info mb-1">
+                        <i class="fas fa-camera mr-1"></i>Bukti Foto
+                    </a>
                 </div>
             </div>
         </div>
@@ -543,6 +547,55 @@ defined('BASEPATH') or exit('No direct script access allowed');
                                 <!-- Populated dynamically by JS -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================================================================
+                 WIDGET 6: LOG RIWAYAT AKTIVITAS PENGAWAS (AUDIT TRAIL)
+                 =================================================================== -->
+            <div class="collapse mb-5" id="card-proctor-audit">
+                <div class="card card-outline card-secondary my-shadow">
+                    <div class="card-header py-2 bg-white">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center">
+                            <h6 class="card-title font-weight-bold m-0 text-dark">
+                                <i class="fas fa-user-secret text-secondary mr-2"></i>Riwayat Aktivitas Pengawas &amp; Admin (Audit Trail)
+                            </h6>
+                            <div class="d-flex align-items-center mt-1 mt-md-0">
+                                <select id="filter-audit-action" class="form-control form-control-sm mr-2" style="width:auto;">
+                                    <option value="all">Semua Aktivitas</option>
+                                    <option value="RESET_LOGIN">Reset Login</option>
+                                    <option value="FORCE_FINISH">Paksa Selesai</option>
+                                    <option value="BULK_RESET">Bulk Reset</option>
+                                    <option value="BULK_FINISH">Bulk Paksa Selesai</option>
+                                    <option value="REMOTE">Remote HP Exambro</option>
+                                    <option value="UPDATE_EXAMBRO_SETTING">Ubah Pengaturan Exambro</option>
+                                    <option value="DELETE_SNAPSHOT_ARCHIVE">Hapus Arsip Foto</option>
+                                </select>
+                                <button type="button" id="btn-refresh-audit" class="btn btn-xs btn-primary">
+                                    <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+                            <table class="table table-sm table-striped table-hover mb-0 text-xs">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th width="135">Waktu</th>
+                                        <th width="150">Pengawas / Admin</th>
+                                        <th width="140">Aksi</th>
+                                        <th width="180">Target</th>
+                                        <th>Keterangan</th>
+                                        <th width="110">IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-audit-logs">
+                                    <tr><td colspan="6" class="text-center py-3 text-muted">Klik Refresh untuk memuat log aktivitas pengawas.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1443,5 +1496,104 @@ $(document).ready(function () {
             Swal.fire('Gagal', 'Tidak dapat memuat galeri bukti foto siswa.', 'error');
         });
     });
+
+    // ===================================================================
+    // WIDGET 5: CEK KESIAPAN UJIAN (PRE-FLIGHT CHECK)
+    // ===================================================================
+    $('#btn-run-preflight').on('click', function () {
+        Swal.fire({
+            title: 'Memeriksa Kesiapan Ujian...',
+            text: 'Mengecek jadwal, bank soal, ruang/sesi, nomor peserta, disk, & WA Bot',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.getJSON(base_url + 'cbtlive/preflight_check', function (res) {
+            if (!res || !res.status) {
+                Swal.fire('Gagal', 'Tidak dapat menjalankan pemeriksaan kesiapan.', 'error');
+                return;
+            }
+
+            let html = '<div class="text-left mb-3 d-flex justify-content-between align-items-center">'
+                + '<span class="badge ' + (res.error_count > 0 ? 'badge-danger' : 'badge-success') + ' px-2 py-1">'
+                + (res.error_count > 0 ? '⚠️ Ada ' + res.error_count + ' Masalah Kritis' : '✅ ' + res.ok_count + '/' + res.total_checks + ' Siap')
+                + '</span>'
+                + '<small class="text-muted">Dicek: ' + res.checked_at + '</small>'
+                + '</div><div style="max-height:420px;overflow-y:auto;">';
+
+            res.checks.forEach(function (c) {
+                const icon = c.status === 'ok' ? '✅' : (c.status === 'error' ? '❌' : '⚠️');
+                const border = c.status === 'ok' ? '#28a745' : (c.status === 'error' ? '#dc3545' : '#ffc107');
+                const actionBtn = c.action_url && c.action_url.startsWith('#')
+                    ? '<button type="button" class="btn btn-xs btn-outline-primary" onclick="Swal.close(); $(\'' + c.action_url + '\').collapse(\'show\');">' + c.action_label + '</button>'
+                    : (c.action_url ? '<a href="' + c.action_url + '" class="btn btn-xs btn-outline-primary">' + c.action_label + '</a>' : '');
+
+                html += '<div style="border-left:4px solid ' + border + ';background:#f8f9fa;border-radius:6px;padding:10px 12px;margin-bottom:8px;text-align:left;">'
+                    + '<div class="d-flex justify-content-between align-items-center">'
+                    + '<strong style="font-size:13px;">' + icon + ' ' + c.title + '</strong>'
+                    + actionBtn
+                    + '</div>'
+                    + '<div style="font-size:12px;color:#212529;margin-top:3px;">' + c.summary + '</div>'
+                    + '<div style="font-size:11px;color:#6c757d;margin-top:2px;">' + c.details + '</div>'
+                    + '</div>';
+            });
+            html += '</div>';
+
+            Swal.fire({
+                title: '🩺 Hasil Cek Kesiapan Ujian',
+                html: html,
+                width: 680,
+                confirmButtonText: 'Tutup'
+            });
+        }).fail(function () {
+            Swal.fire('Error', 'Gagal menghubungi server untuk Pre-Flight Check.', 'error');
+        });
+    });
+
+    // ===================================================================
+    // WIDGET 6: LOG AKTIVITAS PENGAWAS (AUDIT TRAIL)
+    // ===================================================================
+    const auditBadgeMap = {
+        RESET_LOGIN: 'badge-warning',
+        BULK_RESET: 'badge-warning',
+        FORCE_FINISH: 'badge-danger',
+        BULK_FINISH: 'badge-danger',
+        REMOTE_WARN: 'badge-info',
+        REMOTE_SNAPSHOT: 'badge-primary',
+        REMOTE_RELOAD: 'badge-secondary',
+        REMOTE_UNLOCK: 'badge-danger',
+        UPDATE_EXAMBRO_SETTING: 'badge-dark',
+        DELETE_SNAPSHOT_ARCHIVE: 'badge-danger'
+    };
+
+    function loadAuditLogs() {
+        const act = $('#filter-audit-action').val() || 'all';
+        $('#tbody-audit-logs').html('<tr><td colspan="6" class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin mr-1"></i>Memuat riwayat aktivitas...</td></tr>');
+        $.getJSON(base_url + 'cbtlive/get_audit_logs', { action: act, limit: 60 }, function (res) {
+            if (!res || !res.status || !res.logs || res.logs.length === 0) {
+                $('#tbody-audit-logs').html('<tr><td colspan="6" class="text-center py-3 text-muted">Belum ada catatan aktivitas pengawas untuk filter ini.</td></tr>');
+                return;
+            }
+            let rows = '';
+            res.logs.forEach(function (lg) {
+                const badgeCls = auditBadgeMap[lg.action] || 'badge-secondary';
+                rows += '<tr>'
+                    + '<td class="text-nowrap">' + lg.created_at + '</td>'
+                    + '<td><b>' + lg.actor_name + '</b> <span class="badge badge-light border">' + lg.actor_role + '</span></td>'
+                    + '<td><span class="badge ' + badgeCls + '">' + lg.action + '</span></td>'
+                    + '<td>' + (lg.target_label || '-') + '</td>'
+                    + '<td>' + (lg.detail || '-') + '</td>'
+                    + '<td class="text-muted">' + (lg.ip_address || '-') + '</td>'
+                    + '</tr>';
+            });
+            $('#tbody-audit-logs').html(rows);
+        }).fail(function () {
+            $('#tbody-audit-logs').html('<tr><td colspan="6" class="text-center py-3 text-danger">Gagal memuat log aktivitas.</td></tr>');
+        });
+    }
+
+    $('#card-proctor-audit').on('shown.bs.collapse', loadAuditLogs);
+    $('#btn-refresh-audit').on('click', loadAuditLogs);
+    $('#filter-audit-action').on('change', loadAuditLogs);
 });
 </script>

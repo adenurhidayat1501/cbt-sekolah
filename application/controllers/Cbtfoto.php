@@ -306,6 +306,7 @@ class Cbtfoto extends CI_Controller {
         }
 
         $this->recursiveDelete($folder['abs_dir']);
+        $this->exambro->logProctorAudit('DELETE_SNAPSHOT_ARCHIVE', 'Jadwal #' . $id_jadwal, 'Menghapus arsip folder ' . $folder['folder_name']);
         $this->output_json([
             'status' => true,
             'message' => 'Arsip bukti foto untuk mapel tersebut berhasil dibersihkan dari server.',

@@ -227,6 +227,8 @@ class Cbtwa extends CI_Controller {
 
     /**
      * Webhook Fonnte untuk menerima pesan masuk dari WhatsApp
+     * Fokus ketat: HANYA merespons perintah berawalan ! / # dari ID Grup yang terdaftar di target_group.
+     * Chat pribadi dan grup lain otomatis diabaikan.
      * URL Webhook: https://domain-anda.sch.id/cbtwa/webhook
      */
     public function webhook() {
@@ -240,31 +242,60 @@ class Cbtwa extends CI_Controller {
         $sender = isset($data['sender']) ? trim($data['sender']) : '';
         $message = isset($data['message']) ? trim($data['message']) : '';
         $name = isset($data['name']) ? trim($data['name']) : 'Bapak/Ibu Guru';
-        $member = isset($data['member']) ? trim($data['member']) : '';
 
         if (empty($sender) || empty($message)) {
             $this->output_json(['status' => false, 'message' => 'No payload']);
             return;
         }
 
-        $is_group = (strpos($sender, '@g.us') !== false);
-        $clean_msg = strtolower(trim($message));
-        $clean_msg = preg_replace('/\s+/', ' ', $clean_msg);
-
-        // Periksa apakah pesan merupakan perintah bot
-        $is_absen = in_array($clean_msg, ['!absen', '/absen', '#absen', 'absen', 'tidak ujian', 'belum ujian', 'cek absen', 'absen ujian', 'siswa tidak ujian']);
-        $is_rekap = in_array($clean_msg, ['!rekap', '/rekap', '#rekap', 'rekap', 'nilai', '!nilai', '/nilai', 'rekap nilai', 'hasil ujian']);
-        $is_server = in_array($clean_msg, ['!server', '/server', '#server', 'server', 'status server', 'cek server']);
-        $is_token = in_array($clean_msg, ['!token', '/token', '#token', 'token', 'token ujian', 'cek token']);
-        $is_menu = in_array($clean_msg, ['!menu', '/menu', '#menu', 'menu', 'help', '!help', '/help', 'bantuan', '!bantuan', 'halo', 'cbt', 'bot']);
-
-        // Jika pesan di grup WhatsApp dan bukan perintah bot, abaikan agar tidak spamming obrolan guru
-        if ($is_group && !$is_absen && !$is_rekap && !$is_server && !$is_token && !$is_menu) {
-            $this->output_json(['status' => true, 'message' => 'Ignored regular group conversation']);
+        // 1. Pastikan layanan Bot WA aktif dan Target Grup WA sudah diisi
+        $wa_setting = $this->wa->getSetting();
+        if (!$wa_setting || empty($wa_setting->status)) {
+            $this->output_json(['status' => true, 'message' => 'Bot disabled']);
             return;
         }
 
-        // Catat webhook yang relevan
+        // Ambil daftar ID Grup yang diizinkan (mendukung 1 atau beberapa ID dipisah koma)
+        $raw_groups = trim((string) ($wa_setting->target_group ?? ''));
+        if ($raw_groups === '') {
+            $this->output_json(['status' => true, 'message' => 'Ignored: target_group not configured']);
+            return;
+        }
+
+        $allowed_groups = [];
+        foreach (explode(',', $raw_groups) as $g) {
+            $g = strtolower(trim($g));
+            if ($g === '') continue;
+            $allowed_groups[] = $g;
+            if (strpos($g, '@g.us') === false) {
+                $allowed_groups[] = $g . '@g.us';
+            }
+        }
+
+        // 2. Tolak SEMUA chat pribadi dan grup lain yang bukan termasuk Target Grup WA terdaftar
+        $sender_lower = strtolower($sender);
+        $is_group = (strpos($sender_lower, '@g.us') !== false);
+        if (!$is_group || !in_array($sender_lower, $allowed_groups, true)) {
+            $this->output_json(['status' => true, 'message' => 'Ignored: sender not in allowed target_group']);
+            return;
+        }
+
+        // 3. Hanya proses perintah eksplisit berawalan !, /, atau # agar obrolan biasa di grup tidak dibalas
+        $clean_msg = strtolower(trim($message));
+        $clean_msg = preg_replace('/\s+/', ' ', $clean_msg);
+
+        $is_absen  = in_array($clean_msg, ['!absen', '/absen', '#absen'], true);
+        $is_rekap  = in_array($clean_msg, ['!rekap', '/rekap', '#rekap', '!nilai', '/nilai', '#nilai'], true);
+        $is_server = in_array($clean_msg, ['!server', '/server', '#server'], true);
+        $is_token  = in_array($clean_msg, ['!token', '/token', '#token'], true);
+        $is_menu   = in_array($clean_msg, ['!menu', '/menu', '#menu', '!help', '/help', '#help', '!bantuan', '/bantuan', '#bantuan'], true);
+
+        if (!$is_absen && !$is_rekap && !$is_server && !$is_token && !$is_menu) {
+            $this->output_json(['status' => true, 'message' => 'Ignored: regular group conversation']);
+            return;
+        }
+
+        // Catat webhook perintah bot yang valid
         $this->wa->logMessage('in', $sender, 'SADUCI CBT', $message, 'webhook', 'SUCCESS', $raw_input);
 
         // Router Perintah Bot
@@ -304,7 +335,7 @@ class Cbtwa extends CI_Controller {
             $reply = $this->wa->formatTokenMessage();
             $this->wa->sendFonnte($sender, $reply);
 
-        } else {
+        } else if ($is_menu) {
             // Menu Bantuan Utama
             $reply = "🤖 *BOT MONITORING SADUCI CBT*\n";
             $reply .= "SMP Negeri Satu Atap 2 Cipatujah\n\n";
@@ -315,7 +346,7 @@ class Cbtwa extends CI_Controller {
             $reply .= "👉 *!server* : Cek status beban & kesehatan server\n";
             $reply .= "👉 *!token* : Cek token ujian hari ini\n";
             $reply .= "👉 *!menu* : Tampilkan menu bantuan ini\n\n";
-            $reply .= "_Ketik perintah kata kunci di atas untuk memulai._";
+            $reply .= "_Ketik perintah berawalan tanda seru (!) di atas._";
 
             $this->wa->sendFonnte($sender, $reply);
         }

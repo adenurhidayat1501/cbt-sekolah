@@ -413,6 +413,14 @@ class Exambro extends CI_Controller {
         ];
 
         $ok = $this->exambro->saveSetting($data);
+        if ($ok) {
+            $summary = 'WajibExambro=' . ($data['require_exambro'] ? 'ON' : 'OFF')
+                . ', Snapshot=' . ($data['snapshot_enabled'] ? 'ON(' . $data['snapshot_interval_min'] . 'm)' : 'OFF')
+                . ', Alarm=' . ($data['alarm_enabled'] ? 'ON' : 'OFF')
+                . ', WAAlert=' . ($data['wa_alert_enabled'] ? 'ON' : 'OFF')
+                . ', Kode=' . $this->exambro->getActiveExitCode();
+            $this->exambro->logProctorAudit('UPDATE_EXAMBRO_SETTING', 'Pengaturan Exambro', $summary);
+        }
         $this->output_json([
             'status'           => (bool) $ok,
             'message'          => $ok ? 'Pengaturan Saduci Exambro berhasil disimpan!' : 'Gagal menyimpan pengaturan.',
@@ -447,6 +455,15 @@ class Exambro extends CI_Controller {
         $sender = $user ? $user->username : 'pengawas';
 
         $ok = $this->exambro->queueCommand($id_siswa, $id_jadwal, $command, $message, $sender);
+        if ($ok) {
+            $siswa = $this->db->select('nama, nis')->where('id_siswa', $id_siswa)->get('master_siswa')->row();
+            $targetLbl = $siswa ? ($siswa->nama . ' (' . $siswa->nis . ')') : ('Siswa #' . $id_siswa);
+            $this->exambro->logProctorAudit(
+                'REMOTE_' . $command,
+                $targetLbl,
+                $message !== '' ? ('Pesan: ' . $message) : ('Perintah ' . $command . ' ke perangkat siswa (Jadwal #' . $id_jadwal . ')')
+            );
+        }
         $this->output_json([
             'status'  => (bool) $ok,
             'message' => $ok

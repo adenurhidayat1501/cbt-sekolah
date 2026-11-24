@@ -655,6 +655,9 @@ class Cbtlive extends CI_Controller {
         if ($this->db->trans_status() === FALSE) {
             $this->output_json(['status' => false, 'message' => 'Gagal me-reset login siswa']);
         } else {
+            $siswa = $this->db->select('nama, nis')->where('id_siswa', $id_siswa)->get('master_siswa')->row();
+            $targetLbl = $siswa ? ($siswa->nama . ' (' . $siswa->nis . ')') : ('Siswa #' . $id_siswa);
+            $this->exambro->logProctorAudit('RESET_LOGIN', $targetLbl, 'Reset login siswa pada Jadwal #' . $id_jadwal);
             $this->output_json(['status' => true, 'message' => 'Login siswa berhasil di-reset. Siswa dapat login kembali.']);
         }
     }
@@ -694,6 +697,9 @@ class Cbtlive extends CI_Controller {
         if ($this->db->trans_status() === FALSE) {
             $this->output_json(['status' => false, 'message' => 'Gagal menyelesaikan ujian siswa']);
         } else {
+            $siswa = $this->db->select('nama, nis')->where('id_siswa', $id_siswa)->get('master_siswa')->row();
+            $targetLbl = $siswa ? ($siswa->nama . ' (' . $siswa->nis . ')') : ('Siswa #' . $id_siswa);
+            $this->exambro->logProctorAudit('FORCE_FINISH', $targetLbl, 'Paksa selesai ujian siswa pada Jadwal #' . $id_jadwal);
             $this->output_json(['status' => true, 'message' => 'Ujian siswa berhasil diselesaikan']);
         }
     }
@@ -753,7 +759,222 @@ class Cbtlive extends CI_Controller {
         if ($this->db->trans_status() === FALSE) {
             $this->output_json(['status' => false, 'message' => 'Terjadi kesalahan saat memproses aksi']);
         } else {
+            $auditAct = ($action === 'reset') ? 'BULK_RESET' : 'BULK_FINISH';
+            $this->exambro->logProctorAudit($auditAct, count($ids) . ' Siswa', $msg . ' (Jadwal #' . $id_jadwal . ')');
             $this->output_json(['status' => true, 'message' => $msg]);
         }
+    }
+
+    /**
+     * Widget Cek Kesiapan Ujian (Pre-Flight Check) sebelum bel ujian berbunyi
+     * GET /cbtlive/preflight_check
+     */
+    public function preflight_check() {
+        $tp = $this->dashboard->getTahunActive();
+        $smt = $this->dashboard->getSemesterActive();
+        $today = date('Y-m-d');
+        $checks = [];
+
+        // 1. Cek Jadwal Aktif Hari Ini
+        $this->db->select('a.id_jadwal, a.id_bank, a.tgl_mulai, a.tgl_selesai, b.bank_kode, d.nama_mapel');
+        $this->db->from('cbt_jadwal a');
+        $this->db->join('cbt_bank_soal b', 'b.id_bank=a.id_bank', 'left');
+        $this->db->join('master_mapel d', 'd.id_mapel=b.bank_mapel_id', 'left');
+        if ($tp) $this->db->where('a.id_tp', $tp->id_tp);
+        if ($smt) $this->db->where('a.id_smt', $smt->id_smt);
+        $this->db->where('a.status', '1');
+        $active_jadwals = $this->db->get()->result();
+
+        $today_list = [];
+        foreach ($active_jadwals as $j) {
+            $mulai = date('Y-m-d', strtotime($j->tgl_mulai));
+            $selesai = date('Y-m-d', strtotime($j->tgl_selesai));
+            if ($today >= $mulai && $today <= $selesai) {
+                $today_list[] = ($j->nama_mapel ?: $j->bank_kode) . ' (' . $j->bank_kode . ')';
+            }
+        }
+        $checks[] = [
+            'key' => 'jadwal_today',
+            'title' => 'Jadwal Ujian Aktif Hari Ini',
+            'status' => count($today_list) > 0 ? 'ok' : 'warn',
+            'summary' => count($today_list) > 0
+                ? count($today_list) . ' jadwal aktif hari ini (' . count($active_jadwals) . ' total jadwal aktif).'
+                : 'Tidak ada jadwal yang jatuh pada tanggal hari ini (' . date('d/m/Y') . ').',
+            'details' => !empty($today_list) ? implode(', ', array_slice($today_list, 0, 5)) : 'Periksa tanggal mulai/selesai di menu Jadwal.',
+            'action_url' => base_url('cbtjadwal'),
+            'action_label' => 'Atur Jadwal',
+        ];
+
+        // 2. Cek Kelengkapan Soal pada Bank Soal Aktif
+        $empty_banks = [];
+        $checked_banks = [];
+        foreach ($active_jadwals as $j) {
+            if (isset($checked_banks[$j->id_bank])) continue;
+            $checked_banks[$j->id_bank] = true;
+            $cnt = $this->db->where('bank_id', $j->id_bank)->count_all_results('cbt_soal');
+            if ($cnt <= 0) {
+                $empty_banks[] = ($j->nama_mapel ?: 'Bank') . ' (' . ($j->bank_kode ?: '#' . $j->id_bank) . ')';
+            }
+        }
+        $checks[] = [
+            'key' => 'bank_soal',
+            'title' => 'Kelengkapan Isi Bank Soal Aktif',
+            'status' => count($empty_banks) === 0 ? 'ok' : 'error',
+            'summary' => count($empty_banks) === 0
+                ? 'Semua ' . count($checked_banks) . ' bank soal jadwal aktif sudah terisi soal.'
+                : count($empty_banks) . ' bank soal masih KOSONG (0 butir soal)!',
+            'details' => count($empty_banks) > 0 ? 'Kosong: ' . implode(', ', $empty_banks) : 'Siap dikerjakan siswa.',
+            'action_url' => base_url('cbtbanksoal'),
+            'action_label' => 'Cek Bank Soal',
+        ];
+
+        // 3. Cek Pemetaan Ruang & Sesi Siswa
+        $total_siswa = 0;
+        $mapped_sesi = 0;
+        $mapped_nomor = 0;
+        if ($tp && $smt) {
+            $total_siswa = $this->db
+                ->where('id_tp', $tp->id_tp)
+                ->where('id_smt', $smt->id_smt)
+                ->count_all_results('kelas_siswa');
+
+            $mapped_sesi = $this->db
+                ->from('kelas_siswa ks')
+                ->join('cbt_sesi_siswa ss', 'ss.siswa_id=ks.id_siswa AND ss.tp_id=ks.id_tp AND ss.smt_id=ks.id_smt')
+                ->where('ks.id_tp', $tp->id_tp)
+                ->where('ks.id_smt', $smt->id_smt)
+                ->where('ss.ruang_id >', 0)
+                ->where('ss.sesi_id >', 0)
+                ->count_all_results();
+
+            $mapped_nomor = $this->db
+                ->from('kelas_siswa ks')
+                ->join('cbt_nomor_peserta np', 'np.id_siswa=ks.id_siswa AND np.id_tp=ks.id_tp')
+                ->where('ks.id_tp', $tp->id_tp)
+                ->where('ks.id_smt', $smt->id_smt)
+                ->where('np.nomor_peserta !=', '')
+                ->count_all_results();
+        }
+        $unmapped_sesi = max(0, $total_siswa - $mapped_sesi);
+        $checks[] = [
+            'key' => 'ruang_sesi',
+            'title' => 'Pemetaan Ruang & Sesi Siswa',
+            'status' => ($total_siswa > 0 && $unmapped_sesi === 0) ? 'ok' : ($unmapped_sesi > 0 ? 'error' : 'warn'),
+            'summary' => $total_siswa > 0
+                ? "{$mapped_sesi} dari {$total_siswa} siswa sudah terpetakan ke ruang & sesi."
+                : 'Belum ada siswa terdaftar di kelas pada TP/SMT aktif.',
+            'details' => $unmapped_sesi > 0 ? "{$unmapped_sesi} siswa belum mendapat ruang/sesi ujian!" : 'Semua siswa sudah punya ruang & sesi.',
+            'action_url' => base_url('cbtsesisiswa'),
+            'action_label' => 'Atur Ruang/Sesi',
+        ];
+
+        // 4. Cek Nomor Peserta Ujian
+        $unmapped_nomor = max(0, $total_siswa - $mapped_nomor);
+        $checks[] = [
+            'key' => 'nomor_peserta',
+            'title' => 'Nomor Peserta Ujian Siswa',
+            'status' => ($total_siswa > 0 && $unmapped_nomor === 0) ? 'ok' : 'warn',
+            'summary' => "{$mapped_nomor} dari {$total_siswa} siswa memiliki Nomor Peserta.",
+            'details' => $unmapped_nomor > 0 ? "{$unmapped_nomor} siswa belum memiliki nomor peserta." : 'Nomor peserta lengkap.',
+            'action_url' => base_url('cbtnomorpeserta'),
+            'action_label' => 'Atur Nomor Peserta',
+        ];
+
+        // 5. Cek Keamanan & Pengaturan Exambro
+        $ex = $this->exambro->getSetting();
+        $checks[] = [
+            'key' => 'exambro_policy',
+            'title' => 'Kebijakan Saduci Exambro & Snapshot',
+            'status' => !empty($ex->require_exambro) ? 'ok' : 'warn',
+            'summary' => 'Wajib Exambro: ' . (!empty($ex->require_exambro) ? 'ON' : 'OFF')
+                . ' | Snapshot: ' . (!empty($ex->snapshot_enabled) ? 'ON (' . intval($ex->snapshot_interval_min) . 'm)' : 'OFF')
+                . ' | Alarm: ' . (!empty($ex->alarm_enabled) ? 'ON' : 'OFF'),
+            'details' => 'Kode Keluar Aktif: ' . $this->exambro->getActiveExitCode() . ' | Min. APK: v' . ($ex->min_version ?? '1.0.0'),
+            'action_url' => '#collapse-exambro-settings',
+            'action_label' => 'Atur Kontrol',
+        ];
+
+        // 6. Cek Folder Writable & Sisa Disk VPS
+        $this->exambro->getSnapshotDir();
+        $dirsToCheck = [
+            'uploads' => FCPATH . 'uploads',
+            'exambro_snapshots' => FCPATH . 'uploads/exambro_snapshots',
+            'cache' => APPPATH . 'cache',
+            'logs' => APPPATH . 'logs',
+        ];
+        $unwritable = [];
+        foreach ($dirsToCheck as $label => $path) {
+            if (!is_dir($path) || !is_writable($path)) {
+                $unwritable[] = $label;
+            }
+        }
+        $freeGb = @disk_free_space(FCPATH) ? round(@disk_free_space(FCPATH) / (1024 * 1024 * 1024), 2) : 0;
+        $diskStatus = 'ok';
+        if (!empty($unwritable) || $freeGb < 1) {
+            $diskStatus = 'error';
+        } elseif ($freeGb < 3) {
+            $diskStatus = 'warn';
+        }
+        $checks[] = [
+            'key' => 'storage_perm',
+            'title' => 'Izin Folder Upload & Sisa Disk VPS',
+            'status' => $diskStatus,
+            'summary' => "Sisa Disk VPS: {$freeGb} GB | Folder upload & snapshot: " . (empty($unwritable) ? 'Writable (Siap)' : 'Bermasalah'),
+            'details' => !empty($unwritable) ? 'Folder tidak bisa ditulis: ' . implode(', ', $unwritable) : 'Siap menyimpan jawaban & bukti foto ujian.',
+            'action_url' => base_url('cbtfoto'),
+            'action_label' => 'Cek Bukti Foto',
+        ];
+
+        // 7. Cek Koneksi WhatsApp Bot (Fonnte)
+        $waOk = false;
+        $waSummary = 'Token WA Fonnte belum diatur.';
+        if ($this->db->table_exists('cbt_wa_setting')) {
+            $waRow = $this->db->get('cbt_wa_setting')->row();
+            if ($waRow && !empty($waRow->status) && !empty($waRow->api_token)) {
+                $waOk = true;
+                $waSummary = 'WhatsApp Bot Fonnte aktif' . (!empty($waRow->target_group) ? ' (Grup terhubung).' : ' (Target grup belum diisi).');
+            }
+        }
+        $checks[] = [
+            'key' => 'wa_gateway',
+            'title' => 'Integrasi Notifikasi WhatsApp (Fonnte)',
+            'status' => $waOk ? 'ok' : 'warn',
+            'summary' => $waSummary,
+            'details' => !empty($ex->wa_alert_enabled) ? 'Alert pelanggaran 3x & beban server > ' . intval($ex->wa_cpu_threshold ?: 85) . '% aktif.' : 'Alert otomatis WA sedang OFF.',
+            'action_url' => base_url('cbtwa'),
+            'action_label' => 'Atur WA Bot',
+        ];
+
+        $okCount = 0;
+        $errCount = 0;
+        foreach ($checks as $c) {
+            if ($c['status'] === 'ok') $okCount++;
+            if ($c['status'] === 'error') $errCount++;
+        }
+
+        $this->output_json([
+            'status' => true,
+            'checked_at' => date('d/m/Y H:i:s'),
+            'ok_count' => $okCount,
+            'error_count' => $errCount,
+            'total_checks' => count($checks),
+            'checks' => $checks,
+        ]);
+    }
+
+    /**
+     * Ambil Log Riwayat Aktivitas Pengawas (Audit Trail)
+     * GET /cbtlive/get_audit_logs?action=...&limit=50
+     */
+    public function get_audit_logs() {
+        $action = trim((string) $this->input->get('action', true));
+        $limit = intval($this->input->get('limit') ?: 50);
+        $logs = $this->exambro->getProctorAudits($limit, $action);
+
+        $this->output_json([
+            'status' => true,
+            'total' => count($logs),
+            'logs' => $logs,
+        ]);
     }
 }

@@ -271,7 +271,8 @@ $has_group = !empty($wa_setting->target_group);
                                                 </div>
                                             </div>
                                             <small class="text-muted">
-                                                Klik tombol <b>Pilih dari Daftar Grup</b> untuk otomatis memuat grup WA yang diikuti nomor bot Fonnte.
+                                                Klik tombol <b>Pilih dari Daftar Grup</b> untuk otomatis memuat grup WA.
+                                                <br><span class="text-info"><i class="fas fa-shield-alt mr-1"></i><b>Mode Fokus Grup Aktif:</b> Bot hanya membalas perintah berawalan <code>!</code> / <code>/</code> / <code>#</code> (misal <code>!absen</code>, <code>!rekap</code>, <code>!server</code>, <code>!token</code>, <code>!menu</code>) dari ID Grup di atas (bisa lebih dari 1 grup, pisahkan dengan koma). Chat pribadi &amp; grup lain otomatis diabaikan.</span>
                                             </small>
                                         </div>
 
