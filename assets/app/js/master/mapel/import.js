@@ -61,16 +61,18 @@ $(document).ready(function () {
         });
     });
 
-    $('#formPreviewExcel').find('.dropify-filename-inner').on('DOMSubtreeModified',function(e){
+    $('#input-file-events-excel').on('change', function (e) {
+        var files = e.target.files || [];
+        if (!files.length) return;
         var form = new FormData($("#formPreviewExcel")[0]);
-        var filename = $(this).text();
-        preview(base_url + 'datamapel/previewExcel', form, filename);
+        preview(base_url + 'datamapel/previewExcel', form, files[0].name);
     });
 
-    $('#formPreviewWord').find('.dropify-filename-inner').on('DOMSubtreeModified',function(e){
+    $('#input-file-events-word').on('change', function (e) {
+        var files = e.target.files || [];
+        if (!files.length) return;
         var form = new FormData($("#formPreviewWord")[0]);
-        var filename = $(this).text();
-        preview(base_url + 'datamapel/previewWord', form, filename);
+        preview(base_url + 'datamapel/previewWord', form, files[0].name);
     });
 
     $('#formUpload').submit('click', function (e) {

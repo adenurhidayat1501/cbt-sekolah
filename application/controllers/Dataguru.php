@@ -466,9 +466,11 @@ class Dataguru extends CI_Controller
 		$this->output_json($data);
 	}
 
-    /*
     public function previewExcel()
     {
+        if (!is_dir('./uploads/import/')) {
+            @mkdir('./uploads/import/', 0775, true);
+        }
         $config['upload_path']		= './uploads/import/';
         $config['allowed_types']	= 'xls|xlsx|csv';
         $config['max_size']			= 2048;
@@ -477,12 +479,12 @@ class Dataguru extends CI_Controller
         $this->load->library('upload', $config);
 
         if (!$this->upload->do_upload('upload_file')) {
-            $error = $this->upload->display_errors();
+            $error = $this->upload->display_errors('', '');
             echo $error;
             die;
         } else {
             $file = $this->upload->data('full_path');
-            $ext = $this->upload->data('file_ext');
+            $ext = strtolower($this->upload->data('file_ext'));
 
             switch ($ext) {
                 case '.xlsx':
@@ -495,7 +497,8 @@ class Dataguru extends CI_Controller
                     $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
                     break;
                 default:
-                    echo "unknown file ext";
+                    @unlink($file);
+                    echo "Format file tidak didukung ($ext)";
                     die;
             }
 
@@ -503,25 +506,32 @@ class Dataguru extends CI_Controller
             $sheetData = $spreadsheet->getActiveSheet()->toArray();
             $data = [];
             for ($i = 1; $i < count($sheetData); $i++) {
-                if ($sheetData[$i][0] != null) {
+                $nama = trim((string)($sheetData[$i][1] ?? ''));
+                $nip = trim((string)($sheetData[$i][2] ?? ''));
+                if ($nama !== '' || $nip !== '') {
                     $data[] = [
-                        'nama' => $sheetData[$i][1],
-                        'nip' => $sheetData[$i][2],
-                        'kode' => $sheetData[$i][3],
-                        'username' => $sheetData[$i][4],
-                        'password' => $sheetData[$i][5],
+                        'nama' => $nama,
+                        'nip' => $nip,
+                        'kode' => trim((string)($sheetData[$i][3] ?? '')),
+                        'username' => trim((string)($sheetData[$i][4] ?? '')),
+                        'password' => trim((string)($sheetData[$i][5] ?? '')),
                     ];
-                    //$jurusan[] = $sheetData[$i][0];
                 }
             }
 
-            unlink($file);
+            @unlink($file);
             echo json_encode($data);
         }
     }
 
     public function previewWord()
     {
+        if (!is_dir('./uploads/import/')) {
+            @mkdir('./uploads/import/', 0775, true);
+        }
+        if (!is_dir('./uploads/temp/')) {
+            @mkdir('./uploads/temp/', 0775, true);
+        }
         $config['upload_path']		= './uploads/import/';
         $config['allowed_types']	= 'docx';
         $config['max_size']			= 2048;
@@ -530,45 +540,50 @@ class Dataguru extends CI_Controller
         $this->load->library('upload', $config);
 
         if (!$this->upload->do_upload('upload_file')) {
-            $error = $this->upload->display_errors();
+            $error = $this->upload->display_errors('', '');
             echo $error;
             die;
         } else {
             $file = $this->upload->data('full_path');
             $phpWord = \PhpOffice\PhpWord\IOFactory::load($file);
             $htmlWriter = new \PhpOffice\PhpWord\Writer\HTML($phpWord);
+            $tempHtml = './uploads/temp/doc_guru_' . uniqid() . '.html';
             try {
-                $htmlWriter->save('./uploads/temp/doc.html');
-                //$htmlWriter->save("php://output");
+                $htmlWriter->save($tempHtml);
             } catch (\PhpOffice\PhpWord\Exception\Exception $e) {
             }
 
-            unlink($file);
-            $text = file_get_contents('./uploads/temp/doc.html');
+            @unlink($file);
+            $text = file_exists($tempHtml) ? file_get_contents($tempHtml) : '';
+            @unlink($tempHtml);
 
             $dom = new DOMDocument();
-            $dom->loadHTML($text);
+            @$dom->loadHTML($text);
             $data = [];
 
             $dom->preserveWhiteSpace = false;
             $tables = $dom->getElementsByTagName('table');
-            $rows = $tables->item(0)->getElementsByTagName('tr');
-
-            for ($i = 1; $i < $rows->count(); $i++) {
-                $cols = $rows[$i]->getElementsByTagName('td');
-                $data[] = [
-                    'nama'      => $cols->item(1)->nodeValue,
-                    'nip'       => $cols->item(2)->nodeValue,
-                    'kode'      => $cols->item(3)->nodeValue,
-                    'username'  => $cols->item(4)->nodeValue,
-                    'password'  => $cols->item(5)->nodeValue
-                ];
+            if ($tables->length > 0) {
+                $rows = $tables->item(0)->getElementsByTagName('tr');
+                for ($i = 1; $i < $rows->length; $i++) {
+                    $cols = $rows->item($i)->getElementsByTagName('td');
+                    $nama = $cols->item(1) ? trim($cols->item(1)->nodeValue) : '';
+                    $nip  = $cols->item(2) ? trim($cols->item(2)->nodeValue) : '';
+                    if ($nama !== '' || $nip !== '') {
+                        $data[] = [
+                            'nama'      => $nama,
+                            'nip'       => $nip,
+                            'kode'      => $cols->item(3) ? trim($cols->item(3)->nodeValue) : '',
+                            'username'  => $cols->item(4) ? trim($cols->item(4)->nodeValue) : '',
+                            'password'  => $cols->item(5) ? trim($cols->item(5)->nodeValue) : ''
+                        ];
+                    }
+                }
             }
 
             echo json_encode($data);
         }
     }
-    */
 
 	public function import($import_data = null)
 	{

@@ -132,23 +132,28 @@ $(document).ready(function () {
         });
     });
 
-    $('#formPreviewExcel').find('.dropify-filename-inner').on('DOMSubtreeModified',function(e){
+    $('#input-file-events-excel').on('change', function (e) {
+        var files = e.target.files || [];
+        if (!files.length) return;
         var form = new FormData($("#formPreviewExcel")[0]);
-        var filename = $(this).text();
-        preview(base_url + 'dataguru/previewExcel', form, filename);
+        preview(base_url + 'dataguru/previewExcel', form, files[0].name);
     });
 
-    $('#formPreviewWord').find('.dropify-filename-inner').on('DOMSubtreeModified',function(e){
+    $('#input-file-events-word').on('change', function (e) {
+        var files = e.target.files || [];
+        if (!files.length) return;
         var form = new FormData($("#formPreviewWord")[0]);
-        var filename = $(this).text();
-        preview(base_url + 'dataguru/previewWord', form, filename);
+        preview(base_url + 'dataguru/previewWord', form, files[0].name);
     });
 
-    $('#formUpload').submit('click', function (e) {
+    $('#formUpload').on('submit', function (e) {
         e.preventDefault();
         e.stopImmediatePropagation();
 
-        console.log("data:", $(this).serialize());
+        if (!$('#formInput').val()) {
+            swal.fire('Perhatian', 'Silakan pilih file Excel atau Word terlebih dahulu sampai preview muncul.', 'warning');
+            return false;
+        }
 
         $.ajax({
             url: base_url + "dataguru/do_import",
@@ -156,19 +161,13 @@ $(document).ready(function () {
             dataType: "JSON",
             data: $(this).serialize(),
             success: function (data) {
-                window.history.back();
+                swal.fire('Sukses', 'Data guru berhasil diimpor!', 'success').then(function () {
+                    window.location.href = base_url + 'dataguru';
+                });
             },
             error: function (xhr, status, error) {
-                console.log("error", e.responseText);
-                $.toast({
-                    heading: "ERROR!!",
-                    text: "file tidak terbaca",
-                    icon: 'error',
-                    showHideTransition: 'fade',
-                    allowToastClose: true,
-                    hideAfter: 5000,
-                    position: 'top-right'
-                });
+                console.log("error", xhr.responseText);
+                swal.fire('Gagal', 'Data guru gagal diimpor. Periksa kembali format file.', 'error');
             }
         });
         return false;
