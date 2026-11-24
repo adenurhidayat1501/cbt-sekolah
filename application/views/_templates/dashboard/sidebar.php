@@ -108,6 +108,7 @@
                         {'name': 'Cetak', 'link':"cbtcetak", 'icon': 'fa fa-print'},
                         {'name': 'Status Siswa', 'link':"cbtstatus", 'icon': 'fa fa-user-clock'},
                         {'name': 'Live Monitor Ujian', 'link':"cbtlive", 'icon': 'fas fa-satellite-dish text-danger', 'badge': 'LIVE'},
+                        {'name': 'Bukti Foto Ujian', 'link':"cbtfoto", 'icon': 'fas fa-camera text-info', 'badge': 'FOTO'},
                         {'name': 'WhatsApp Bot & Notif', 'link':"cbtwa", 'icon': 'fab fa-whatsapp text-success', 'badge': 'WA'},
                         {'name': 'Hasil Ujian', 'link':"cbtnilai", 'icon': 'fa fa-file-alt'},
                         {'name': 'Analisis Soal', 'link':"cbtanalisis", 'icon': 'fa fa-chart-line'},

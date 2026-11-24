@@ -231,7 +231,8 @@ class Exambro extends CI_Controller {
     }
 
     /**
-     * Endpoint upload foto Auto-Snapshot ringan dari kamera depan siswa (max ~150KB, menimpa foto lama)
+     * Endpoint upload foto Auto-Snapshot ringan dari kamera depan siswa (max ~200KB)
+     * Disimpan berkelompok: uploads/exambro_snapshots/{id_jadwal}_{mapel}/{id_siswa}_{nis}_{nama}/Ymd_His_{reason}.jpg
      * POST /exambro/upload_snapshot
      * Payload JSON: { id_siswa, id_jadwal, image_base64, reason }
      */
@@ -250,6 +251,7 @@ class Exambro extends CI_Controller {
         $id_siswa = intval($input['id_siswa'] ?? 0);
         $id_jadwal = intval($input['id_jadwal'] ?? 0);
         $image_base64 = $input['image_base64'] ?? '';
+        $reason = $input['reason'] ?? 'periodic';
 
         if ($id_siswa <= 0 || $id_jadwal <= 0 || empty($image_base64)) {
             $this->output_json(['status' => false, 'message' => 'Parameter snapshot tidak lengkap.']);
@@ -273,21 +275,119 @@ class Exambro extends CI_Controller {
             return;
         }
 
-        $dir = $this->exambro->getSnapshotDir();
-        $filename = "snap_{$id_jadwal}_{$id_siswa}.jpg";
-        $written = @file_put_contents($dir . $filename, $binary);
-
-        if ($written === false) {
+        $saved = $this->exambro->saveStudentSnapshot($id_jadwal, $id_siswa, $binary, $reason);
+        if (!$saved) {
             $this->output_json(['status' => false, 'message' => 'Gagal menyimpan snapshot di server.']);
             return;
         }
 
         $this->output_json([
             'status'      => true,
-            'message'     => 'Snapshot diterima.',
-            'size_bytes'  => strlen($binary),
+            'message'     => 'Bukti foto snapshot tersimpan.',
+            'filename'    => $saved['filename'],
+            'folder'      => $saved['folder'],
+            'size_bytes'  => $saved['size_bytes'],
             'server_time' => date('H:i:s'),
         ]);
+    }
+
+    /**
+     * Ambil galeri bukti foto seorang siswa pada mapel/jadwal tertentu
+     * GET /exambro/get_student_gallery?id_jadwal=..&id_siswa=..
+     */
+    public function get_student_gallery() {
+        if (!$this->ion_auth->logged_in() || (!$this->ion_auth->is_admin() && !$this->ion_auth->in_group('guru'))) {
+            $this->output_json(['status' => false, 'message' => 'Akses ditolak.']);
+            return;
+        }
+
+        $id_jadwal = intval($this->input->get('id_jadwal'));
+        $id_siswa = intval($this->input->get('id_siswa'));
+        if ($id_jadwal <= 0 || $id_siswa <= 0) {
+            $this->output_json(['status' => false, 'message' => 'Parameter tidak valid.']);
+            return;
+        }
+
+        $items = $this->exambro->getStudentSnapshots($id_jadwal, $id_siswa);
+        $this->output_json([
+            'status' => true,
+            'total'  => count($items),
+            'photos' => $items,
+        ]);
+    }
+
+    /**
+     * Unduh arsip ZIP bukti foto untuk 1 siswa atau seluruh 1 mapel (dikelompokkan per folder siswa)
+     * GET /exambro/download_snapshots_zip?id_jadwal=..[&id_siswa=..]
+     */
+    public function download_snapshots_zip() {
+        if (!$this->ion_auth->logged_in() || (!$this->ion_auth->is_admin() && !$this->ion_auth->in_group('guru'))) {
+            show_error('Akses ditolak.', 403);
+            return;
+        }
+
+        if (!class_exists('ZipArchive')) {
+            show_error('Ekstensi PHP ZipArchive tidak tersedia di server.', 500);
+            return;
+        }
+
+        $id_jadwal = intval($this->input->get('id_jadwal'));
+        $id_siswa = intval($this->input->get('id_siswa'));
+        if ($id_jadwal <= 0) {
+            show_error('Jadwal tidak valid.', 400);
+            return;
+        }
+
+        $filesToZip = [];
+        $zipLabel = 'bukti_ujian_' . $id_jadwal;
+
+        if ($id_siswa > 0) {
+            $folder = $this->exambro->getStudentSnapshotFolder($id_jadwal, $id_siswa, false);
+            if ($folder && is_dir($folder['abs_dir'])) {
+                $zipLabel = $folder['jadwal_folder'] . '_' . $folder['folder_name'];
+                foreach (glob($folder['abs_dir'] . '*.jpg') ?: [] as $f) {
+                    $filesToZip[] = ['path' => $f, 'entry' => basename($f)];
+                }
+            }
+        } else {
+            $jadwalFolder = $this->exambro->getJadwalSnapshotFolder($id_jadwal, false);
+            if ($jadwalFolder && is_dir($jadwalFolder['abs_dir'])) {
+                $zipLabel = $jadwalFolder['folder_name'];
+                $studentDirs = glob($jadwalFolder['abs_dir'] . '*', GLOB_ONLYDIR) ?: [];
+                foreach ($studentDirs as $sDir) {
+                    $sName = basename($sDir);
+                    foreach (glob($sDir . '/*.jpg') ?: [] as $f) {
+                        $filesToZip[] = ['path' => $f, 'entry' => $sName . '/' . basename($f)];
+                    }
+                }
+            }
+        }
+
+        if (empty($filesToZip)) {
+            show_error('Belum ada bukti foto snapshot yang tersimpan untuk pilihan ini.', 404);
+            return;
+        }
+
+        $tmpZip = sys_get_temp_dir() . '/saduci_snap_' . uniqid() . '.zip';
+        $zip = new ZipArchive();
+        if ($zip->open($tmpZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            show_error('Gagal membuat file ZIP.', 500);
+            return;
+        }
+
+        foreach ($filesToZip as $item) {
+            $zip->addFile($item['path'], $item['entry']);
+        }
+        $zip->close();
+
+        $downloadName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $zipLabel) . '.zip';
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+        header('Content-Length: ' . filesize($tmpZip));
+        header('Pragma: no-cache');
+        readfile($tmpZip);
+        @unlink($tmpZip);
+        exit();
     }
 
     /**

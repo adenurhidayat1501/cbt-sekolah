@@ -161,21 +161,257 @@ class Exambro_model extends CI_Model {
         if (!file_exists($htaccess)) {
             @file_put_contents($htaccess, "Options -Indexes\n<FilesMatch \"\\.(php|phtml|php3|php4|php5|phar)$\">\n    Require all denied\n</FilesMatch>\n");
         }
+        $idx = $dir . 'index.html';
+        if (!file_exists($idx)) {
+            @file_put_contents($idx, '<!DOCTYPE html><html><head><title>403</title></head><body>Forbidden</body></html>');
+        }
         return $dir;
     }
 
-    public function getSnapshotInfo($id_jadwal, $id_siswa) {
-        $filename = 'snap_' . intval($id_jadwal) . '_' . intval($id_siswa) . '.jpg';
-        $fullpath = FCPATH . 'uploads/exambro_snapshots/' . $filename;
-        if (file_exists($fullpath)) {
-            $mtime = @filemtime($fullpath);
+    private function slugifySegment($text, $fallback = 'item') {
+        $clean = preg_replace('/[^a-zA-Z0-9]+/', '_', trim((string) $text));
+        $clean = trim($clean, '_');
+        if ($clean === '') {
+            return $fallback;
+        }
+        return substr($clean, 0, 42);
+    }
+
+    /**
+     * Dapatkan (atau buat) folder mapel untuk pengelompokan bukti foto:
+     * uploads/exambro_snapshots/{id_jadwal}_{nama_mapel}/
+     */
+    public function getJadwalSnapshotFolder($id_jadwal, $create = false) {
+        $baseDir = $this->getSnapshotDir();
+        $id_jadwal = intval($id_jadwal);
+        $prefix = $id_jadwal . '_';
+
+        // Cari folder existing dengan prefix id_jadwal_ agar konsisten
+        $existing = glob($baseDir . $prefix . '*', GLOB_ONLYDIR);
+        if (!empty($existing)) {
+            $folderName = basename($existing[0]);
             return [
-                'exists' => true,
-                'url' => base_url('uploads/exambro_snapshots/' . $filename) . '?t=' . $mtime,
-                'updated_at' => date('H:i:s', $mtime),
+                'abs_dir' => $baseDir . $folderName . '/',
+                'rel_dir' => 'uploads/exambro_snapshots/' . $folderName . '/',
+                'folder_name' => $folderName,
             ];
         }
-        return null;
+
+        if (!$create) {
+            return null;
+        }
+
+        // Ambil nama mapel & kode bank dari DB
+        $row = $this->db
+            ->select('a.id_jadwal, b.bank_kode, d.nama_mapel')
+            ->from('cbt_jadwal a')
+            ->join('cbt_bank_soal b', 'b.id_bank=a.id_bank', 'left')
+            ->join('master_mapel d', 'd.id_mapel=b.bank_mapel_id', 'left')
+            ->where('a.id_jadwal', $id_jadwal)
+            ->get()
+            ->row();
+
+        $label = $row
+            ? trim(($row->nama_mapel ?? '') . ' ' . ($row->bank_kode ?? ''))
+            : 'Mapel';
+        $folderName = $prefix . $this->slugifySegment($label, 'Mapel');
+        $absDir = $baseDir . $folderName . '/';
+
+        if (!is_dir($absDir)) {
+            @mkdir($absDir, 0775, true);
+        }
+        if (!file_exists($absDir . 'index.html')) {
+            @file_put_contents($absDir . 'index.html', '');
+        }
+
+        return [
+            'abs_dir' => $absDir,
+            'rel_dir' => 'uploads/exambro_snapshots/' . $folderName . '/',
+            'folder_name' => $folderName,
+        ];
+    }
+
+    /**
+     * Dapatkan (atau buat) folder siswa di dalam folder mapel:
+     * uploads/exambro_snapshots/{id_jadwal}_{mapel}/{id_siswa}_{nis}_{nama_siswa}/
+     */
+    public function getStudentSnapshotFolder($id_jadwal, $id_siswa, $create = false) {
+        $jadwalFolder = $this->getJadwalSnapshotFolder($id_jadwal, $create);
+        if (!$jadwalFolder) {
+            return null;
+        }
+
+        $id_siswa = intval($id_siswa);
+        $prefix = $id_siswa . '_';
+        $existing = glob($jadwalFolder['abs_dir'] . $prefix . '*', GLOB_ONLYDIR);
+        if (!empty($existing)) {
+            $studentFolderName = basename($existing[0]);
+            return [
+                'abs_dir' => $jadwalFolder['abs_dir'] . $studentFolderName . '/',
+                'rel_dir' => $jadwalFolder['rel_dir'] . $studentFolderName . '/',
+                'folder_name' => $studentFolderName,
+                'jadwal_folder' => $jadwalFolder['folder_name'],
+            ];
+        }
+
+        if (!$create) {
+            return null;
+        }
+
+        $siswa = $this->db
+            ->select('nis, nama')
+            ->where('id_siswa', $id_siswa)
+            ->get('master_siswa')
+            ->row();
+
+        $nisSlug = $siswa && !empty($siswa->nis) ? $this->slugifySegment($siswa->nis, '0') : '0';
+        $namaSlug = $siswa && !empty($siswa->nama) ? $this->slugifySegment($siswa->nama, 'Siswa') : 'Siswa';
+        $studentFolderName = $prefix . $nisSlug . '_' . $namaSlug;
+        $absDir = $jadwalFolder['abs_dir'] . $studentFolderName . '/';
+
+        if (!is_dir($absDir)) {
+            @mkdir($absDir, 0775, true);
+        }
+        if (!file_exists($absDir . 'index.html')) {
+            @file_put_contents($absDir . 'index.html', '');
+        }
+
+        return [
+            'abs_dir' => $absDir,
+            'rel_dir' => $jadwalFolder['rel_dir'] . $studentFolderName . '/',
+            'folder_name' => $studentFolderName,
+            'jadwal_folder' => $jadwalFolder['folder_name'],
+        ];
+    }
+
+    /**
+     * Simpan foto bukti ujian (tidak menimpa foto lama, dikelompokkan per mapel -> per siswa)
+     * Batas pengaman: maks 60 foto/siswa/mapel (jika lebih, hapus foto 'periodic' paling lama, bukti 'violation' selalu dijaga).
+     */
+    public function saveStudentSnapshot($id_jadwal, $id_siswa, $binary, $reason = 'periodic') {
+        $folder = $this->getStudentSnapshotFolder($id_jadwal, $id_siswa, true);
+        if (!$folder) {
+            return false;
+        }
+
+        $safeReason = preg_replace('/[^a-z0-9_]/i', '', strtolower((string) $reason));
+        if (!in_array($safeReason, ['exam_start', 'periodic', 'violation', 'proctor_request'], true)) {
+            $safeReason = 'periodic';
+        }
+
+        $filename = date('Ymd_His') . '_' . $safeReason . '.jpg';
+        $target = $folder['abs_dir'] . $filename;
+
+        // Jika di detik yang sama sudah ada file, tambah suffix angka
+        if (file_exists($target)) {
+            $filename = date('Ymd_His') . '_' . mt_rand(10, 99) . '_' . $safeReason . '.jpg';
+            $target = $folder['abs_dir'] . $filename;
+        }
+
+        $written = @file_put_contents($target, $binary);
+        if ($written === false) {
+            return false;
+        }
+
+        // Batas aman 60 foto per siswa per mapel agar disk tidak bisa penuh tak terkendali
+        $allFiles = glob($folder['abs_dir'] . '*.jpg');
+        if (is_array($allFiles) && count($allFiles) > 60) {
+            sort($allFiles);
+            $toDelete = count($allFiles) - 60;
+            foreach ($allFiles as $f) {
+                if ($toDelete <= 0) break;
+                // Prioritaskan hapus foto periodic lama; jaga bukti violation & exam_start
+                if (stripos(basename($f), '_periodic.jpg') !== false) {
+                    @unlink($f);
+                    $toDelete--;
+                }
+            }
+        }
+
+        return [
+            'filename' => $filename,
+            'rel_path' => $folder['rel_dir'] . $filename,
+            'folder' => $folder['jadwal_folder'] . '/' . $folder['folder_name'],
+            'size_bytes' => strlen($binary),
+        ];
+    }
+
+    /**
+     * Ambil seluruh daftar bukti foto seorang siswa pada jadwal/mapel tertentu (terbaru dulu)
+     */
+    public function getStudentSnapshots($id_jadwal, $id_siswa) {
+        $items = [];
+        $folder = $this->getStudentSnapshotFolder($id_jadwal, $id_siswa, false);
+
+        if ($folder && is_dir($folder['abs_dir'])) {
+            $files = glob($folder['abs_dir'] . '*.jpg');
+            if (is_array($files)) {
+                rsort($files); // Nama file Ymd_His_* -> rsort = terbaru di atas
+                foreach ($files as $fullpath) {
+                    $fname = basename($fullpath);
+                    $mtime = @filemtime($fullpath) ?: time();
+                    $sizeKb = round((@filesize($fullpath) ?: 0) / 1024, 1);
+
+                    $reason = 'periodic';
+                    if (stripos($fname, 'violation') !== false) {
+                        $reason = 'violation';
+                    } elseif (stripos($fname, 'exam_start') !== false) {
+                        $reason = 'exam_start';
+                    } elseif (stripos($fname, 'proctor_request') !== false) {
+                        $reason = 'proctor_request';
+                    }
+
+                    $items[] = [
+                        'filename' => $fname,
+                        'url' => base_url($folder['rel_dir'] . $fname) . '?t=' . $mtime,
+                        'time' => date('H:i:s', $mtime),
+                        'datetime' => date('d/m/Y H:i:s', $mtime),
+                        'reason' => $reason,
+                        'size_kb' => $sizeKb,
+                    ];
+                }
+            }
+        }
+
+        // Fallback kompatibilitas file lama (snap_{jadwal}_{siswa}.jpg) jika pernah ada
+        $legacyFile = 'snap_' . intval($id_jadwal) . '_' . intval($id_siswa) . '.jpg';
+        $legacyPath = FCPATH . 'uploads/exambro_snapshots/' . $legacyFile;
+        if (file_exists($legacyPath)) {
+            $mtime = @filemtime($legacyPath) ?: time();
+            $items[] = [
+                'filename' => $legacyFile,
+                'url' => base_url('uploads/exambro_snapshots/' . $legacyFile) . '?t=' . $mtime,
+                'time' => date('H:i:s', $mtime),
+                'datetime' => date('d/m/Y H:i:s', $mtime),
+                'reason' => 'periodic',
+                'size_kb' => round((@filesize($legacyPath) ?: 0) / 1024, 1),
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Ringkasan foto untuk tabel Live Monitor (/cbtlive)
+     */
+    public function getSnapshotInfo($id_jadwal, $id_siswa) {
+        $items = $this->getStudentSnapshots($id_jadwal, $id_siswa);
+        if (empty($items)) {
+            return null;
+        }
+        $violationPhotos = 0;
+        foreach ($items as $it) {
+            if ($it['reason'] === 'violation') {
+                $violationPhotos++;
+            }
+        }
+        return [
+            'exists' => true,
+            'count' => count($items),
+            'violation_photos' => $violationPhotos,
+            'url' => $items[0]['url'],
+            'updated_at' => $items[0]['time'],
+        ];
     }
 
     public function sendWaAlert($message) {

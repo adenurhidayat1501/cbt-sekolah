@@ -397,10 +397,15 @@ defined('BASEPATH') or exit('No direct script access allowed');
                                         <i class="far fa-copy"></i>
                                     </button>
                                 </div>
-                                <div class="col-12 mt-2 pt-2 border-top">
-                                    <span class="text-xs text-muted mr-2"><i class="fas fa-lock mr-1 text-danger"></i><b>Kode Keluar Exambro Pengawas:</b></span>
-                                    <span class="badge badge-danger font-weight-bold px-2 py-1" id="info-exambro-exit">SDC<?= date('dm') ?></span>
-                                    <small class="text-muted ml-2">(Master Darurat: <code class="text-dark font-weight-bold">992811</code> / <code>SADUCI-EMERGENCY-2026</code>)</small>
+                                <div class="col-12 mt-2 pt-2 border-top d-flex flex-wrap align-items-center justify-content-between">
+                                    <div>
+                                        <span class="text-xs text-muted mr-2"><i class="fas fa-lock mr-1 text-danger"></i><b>Kode Keluar Exambro Pengawas:</b></span>
+                                        <span class="badge badge-danger font-weight-bold px-2 py-1" id="info-exambro-exit"><?= htmlspecialchars($active_exit) ?></span>
+                                        <small class="text-muted ml-2">(Master Darurat: <code class="text-dark font-weight-bold">992811</code> / <code>SADUCI-EMERGENCY-2026</code>)</small>
+                                    </div>
+                                    <a href="#" id="btn-download-mapel-snapshots" class="btn btn-xs btn-outline-primary mt-1 mt-md-0" target="_blank" title="Unduh semua bukti foto siswa pada mapel ini (ZIP terkelompok per siswa)">
+                                        <i class="fas fa-file-archive mr-1"></i>Unduh Bukti Foto Mapel (ZIP)
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -988,8 +993,8 @@ $(document).ready(function () {
                             : ''}
                         ${s.snapshot && s.snapshot.exists
                             ? `<div class="mb-1">
-                                 <button type="button" class="btn btn-xs btn-outline-primary btn-view-snapshot" data-url="${s.snapshot.url}" data-nama="${s.nama}" data-time="${s.snapshot.updated_at}" data-device="${s.exambro_device_name || ''}">
-                                   <i class="fas fa-camera mr-1"></i>Foto (${s.snapshot.updated_at})
+                                 <button type="button" class="btn btn-xs ${s.snapshot.violation_photos > 0 ? 'btn-outline-danger' : 'btn-outline-primary'} btn-view-snapshot" data-id="${s.id_siswa}" data-url="${s.snapshot.url}" data-nama="${s.nama}" data-time="${s.snapshot.updated_at}" data-device="${s.exambro_device_name || ''}" title="Lihat semua bukti foto siswa untuk mapel ini">
+                                   <i class="fas fa-images mr-1"></i>${s.snapshot.count || 1} Foto (${s.snapshot.updated_at})
                                  </button>
                                </div>`
                             : ''}
@@ -1371,19 +1376,71 @@ $(document).ready(function () {
     });
 
     // ===================================================================
-    // PREVIEW SNAPSHOT FOTO KAMERA DEPAN SISWA
+    // GALERI BUKTI FOTO KAMERA DEPAN SISWA (PER MAPEL -> PER SISWA)
     // ===================================================================
+    $('#btn-download-mapel-snapshots').on('click', function (e) {
+        const idJadwal = $('#select-jadwal').val();
+        if (!idJadwal) {
+            e.preventDefault();
+            toastr.warning('Pilih jadwal ujian terlebih dahulu.');
+            return;
+        }
+        $(this).attr('href', base_url + 'exambro/download_snapshots_zip?id_jadwal=' + encodeURIComponent(idJadwal));
+    });
+
     $(document).on('click', '.btn-view-snapshot', function () {
-        const url = $(this).data('url');
+        const idSiswa = $(this).data('id');
+        const idJadwal = $('#select-jadwal').val();
         const nama = $(this).data('nama');
-        const time = $(this).data('time');
         const device = $(this).data('device');
+
+        if (!idSiswa || !idJadwal) return;
+
         Swal.fire({
-            title: '📸 ' + nama,
-            text: (device ? device + ' • ' : '') + 'Diambil pukul ' + time,
-            imageUrl: url,
-            imageAlt: 'Snapshot Siswa',
-            confirmButtonText: 'Tutup'
+            title: 'Memuat Galeri Bukti Foto...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        $.getJSON(base_url + 'exambro/get_student_gallery', { id_jadwal: idJadwal, id_siswa: idSiswa }, function (res) {
+            if (!res || !res.status || !res.photos || res.photos.length === 0) {
+                Swal.fire('Info', 'Belum ada bukti foto tersimpan untuk siswa ini.', 'info');
+                return;
+            }
+
+            const reasonBadge = {
+                violation: '<span class="badge badge-danger">🚨 Pelanggaran</span>',
+                exam_start: '<span class="badge badge-success">Mulai Ujian</span>',
+                proctor_request: '<span class="badge badge-info">Diminta Pengawas</span>',
+                periodic: '<span class="badge badge-secondary">Berkala</span>'
+            };
+
+            let gridHtml = '<div class="text-left mb-2 d-flex justify-content-between align-items-center">'
+                + '<small class="text-muted">' + (device ? '📱 ' + device + ' • ' : '') + 'Total <b>' + res.total + ' foto</b> tersimpan</small>'
+                + '<a href="' + base_url + 'exambro/download_snapshots_zip?id_jadwal=' + encodeURIComponent(idJadwal) + '&id_siswa=' + encodeURIComponent(idSiswa) + '" target="_blank" class="btn btn-xs btn-primary"><i class="fas fa-download mr-1"></i>Unduh ZIP Siswa</a>'
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:10px;max-height:420px;overflow-y:auto;padding:4px;">';
+
+            res.photos.forEach(function (p) {
+                gridHtml += '<div style="border:1px solid #dee2e6;border-radius:8px;overflow:hidden;background:#f8f9fa;text-align:center;">'
+                    + '<a href="' + p.url + '" target="_blank" title="Klik untuk perbesar">'
+                    + '<img src="' + p.url + '" style="width:100%;height:110px;object-fit:cover;display:block;" loading="lazy" />'
+                    + '</a>'
+                    + '<div style="padding:5px;font-size:11px;">'
+                    + (reasonBadge[p.reason] || reasonBadge.periodic)
+                    + '<div class="text-muted mt-1">' + p.time + ' (' + p.size_kb + ' KB)</div>'
+                    + '</div></div>';
+            });
+            gridHtml += '</div>';
+
+            Swal.fire({
+                title: '📸 Bukti Foto: ' + nama,
+                html: gridHtml,
+                width: 720,
+                confirmButtonText: 'Tutup'
+            });
+        }).fail(function () {
+            Swal.fire('Gagal', 'Tidak dapat memuat galeri bukti foto siswa.', 'error');
         });
     });
 });
