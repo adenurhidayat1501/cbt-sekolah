@@ -239,12 +239,22 @@ else
     chmod 600 "$APP_DIR/.env" 2>/dev/null || true
     chmod +x "$APP_DIR"/*.sh 2>/dev/null || true
 
-    echo -e "${BLUE}[5/5] Me-reload Apache secara graceful (zero-downtime)...${NC}"
+    echo -e "${BLUE}[5/5] Me-reload Apache secara graceful & memastikan cron notifikasi WA aktif...${NC}"
+    if [ -d /etc/cron.d ]; then
+        PHP_BIN=$(command -v php || echo "/usr/bin/php")
+        cat <<CRONEOF > /etc/cron.d/saduci_wa_schedule
+# SADUCI CBT - Notifikasi Otomatis Jadwal Ujian & Pengawas WA (Sore & Pagi)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+*/5 * * * * www-data $PHP_BIN $APP_DIR/index.php cbtwa cron_schedule >/dev/null 2>&1
+CRONEOF
+        chmod 644 /etc/cron.d/saduci_wa_schedule
+    fi
     if systemctl is-active --quiet apache2 2>/dev/null; then
         systemctl reload apache2 2>/dev/null || systemctl restart apache2
-        SERVER_STATUS="Apache Reloaded (Graceful, Tanpa Build Ulang)"
+        SERVER_STATUS="Apache Reloaded & Cron WA Aktif (Graceful, Tanpa Build Ulang)"
     else
-        SERVER_STATUS="File Diperbarui (Apache belum aktif)"
+        SERVER_STATUS="File Diperbarui & Cron WA Terpasang (Apache belum aktif)"
     fi
 fi
 

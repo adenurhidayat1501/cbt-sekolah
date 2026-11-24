@@ -718,6 +718,18 @@ a2ensite saduci_cbt.conf
 
 systemctl restart apache2
 
+# Pasang cron otomatis pengingat jadwal ujian & pengawas WA (sore 15:00 & pagi 05:00 WIB)
+if [ -d /etc/cron.d ]; then
+    PHP_BIN=$(command -v php || echo "/usr/bin/php")
+    cat <<CRONEOF > /etc/cron.d/saduci_wa_schedule
+# SADUCI CBT - Notifikasi Otomatis Jadwal Ujian & Pengawas WA (Sore & Pagi)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+*/5 * * * * www-data $PHP_BIN $WEB_ROOT/index.php cbtwa cron_schedule >/dev/null 2>&1
+CRONEOF
+    chmod 644 /etc/cron.d/saduci_wa_schedule
+fi
+
 # Allow Firewall if UFW active
 if command -v ufw >/dev/null 2>&1; then
     ufw allow 80/tcp 2>/dev/null || true

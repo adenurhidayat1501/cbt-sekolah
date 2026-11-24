@@ -235,6 +235,41 @@ $has_group = !empty($wa_setting->target_group);
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Card C: Broadcast Jadwal Ujian & Nama Pengawas (Hari Ini & Besok) -->
+                                <div class="col-12 mb-2">
+                                    <div class="card border rounded bg-white">
+                                        <div class="card-header bg-light border-bottom py-3">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="font-weight-bold m-0 text-dark">
+                                                    <i class="fas fa-calendar-check text-info mr-2"></i>Pengingat Jadwal Ujian &amp; Nama Pengawas (Ruang &amp; Sesi)
+                                                </h6>
+                                                <span class="badge <?= !empty($wa_setting->auto_schedule_enabled) ? 'badge-info' : 'badge-secondary' ?>">
+                                                    <?= !empty($wa_setting->auto_schedule_enabled)
+                                                        ? 'Otomatis: Sore ' . html_escape($wa_setting->schedule_afternoon_time ?? '15:00') . ' & Pagi ' . html_escape($wa_setting->schedule_morning_time ?? '05:00') . ' WIB'
+                                                        : 'Pengingat Otomatis OFF' ?>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="text-sm text-muted mb-3">
+                                                Mengirim daftar mata pelajaran, kelas, jam/sesi, ruang, dan <b>nama guru pengawas</b> langsung ke grup WA. Secara otomatis sistem mengirim pengingat <b>jadwal besok jam <?= html_escape($wa_setting->schedule_afternoon_time ?? '15:00') ?> WIB</b> dan <b>jadwal hari ini + Kode Exambro jam <?= html_escape($wa_setting->schedule_morning_time ?? '05:00') ?> WIB</b> (jika ada jadwal ujian).
+                                            </p>
+                                            <div class="row">
+                                                <div class="col-12 col-md-6 mb-2 mb-md-0">
+                                                    <button type="button" id="btn-broadcast-schedule-today" class="btn btn-info btn-block font-weight-bold py-2" <?= !$is_connected ? 'disabled' : '' ?>>
+                                                        <i class="fas fa-sun mr-2"></i>Kirim Jadwal &amp; Pengawas HARI INI ke Grup WA
+                                                    </button>
+                                                </div>
+                                                <div class="col-12 col-md-6">
+                                                    <button type="button" id="btn-broadcast-schedule-tomorrow" class="btn btn-primary btn-block font-weight-bold py-2" <?= !$is_connected ? 'disabled' : '' ?>>
+                                                        <i class="fas fa-calendar-day mr-2"></i>Kirim Jadwal &amp; Pengawas BESOK ke Grup WA
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -288,16 +323,41 @@ $has_group = !empty($wa_setting->target_group);
                                         <div class="form-group">
                                             <div class="custom-control custom-switch">
                                                 <input type="checkbox" class="custom-control-input" id="status" name="status" value="1" <?= $wa_setting->status == 1 ? 'checked' : '' ?>>
-                                                <label class="custom-control-label font-weight-bold" for="status">Aktifkan Layanan WhatsApp Bot & Gateway</label>
+                                                <label class="custom-control-label font-weight-bold" for="status">Aktifkan Layanan WhatsApp Bot &amp; Gateway</label>
                                             </div>
                                         </div>
 
-                                        <div class="d-flex align-items-center mt-4">
-                                            <button type="submit" class="btn btn-primary font-weight-bold px-4 mr-2" id="btn-save-setting">
+                                        <div class="p-3 rounded border bg-light mb-3">
+                                            <div class="custom-control custom-switch mb-2">
+                                                <input type="checkbox" class="custom-control-input" id="auto_schedule_enabled" name="auto_schedule_enabled" value="1" <?= !isset($wa_setting->auto_schedule_enabled) || $wa_setting->auto_schedule_enabled == 1 ? 'checked' : '' ?>>
+                                                <label class="custom-control-label font-weight-bold text-dark" for="auto_schedule_enabled">
+                                                    <i class="fas fa-clock text-info mr-1"></i>Notifikasi Otomatis Harian Jadwal Ujian &amp; Pengawas
+                                                </label>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <label class="text-xs font-weight-bold text-muted mb-1">Jam Sore (Info Jadwal BESOK)</label>
+                                                    <input type="time" name="schedule_afternoon_time" class="form-control form-control-sm" value="<?= html_escape($wa_setting->schedule_afternoon_time ?? '15:00') ?>">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="text-xs font-weight-bold text-muted mb-1">Jam Pagi (Info Jadwal HARI INI)</label>
+                                                    <input type="time" name="schedule_morning_time" class="form-control form-control-sm" value="<?= html_escape($wa_setting->schedule_morning_time ?? '05:00') ?>">
+                                                </div>
+                                            </div>
+                                            <small class="text-muted d-block mt-2">
+                                                Hanya dikirim jika ada jadwal ujian aktif pada tanggal tersebut (tidak spam saat hari libur).
+                                            </small>
+                                        </div>
+
+                                        <div class="d-flex flex-wrap align-items-center mt-4">
+                                            <button type="submit" class="btn btn-primary font-weight-bold px-4 mr-2 mb-2" id="btn-save-setting">
                                                 <i class="fas fa-save mr-1"></i>Simpan Pengaturan
                                             </button>
-                                            <button type="button" class="btn btn-outline-success font-weight-bold" id="btn-test-send">
-                                                <i class="fab fa-whatsapp mr-1"></i>Kirim Pesan Tes
+                                            <button type="button" class="btn btn-outline-success font-weight-bold mr-2 mb-2" id="btn-test-send-group">
+                                                <i class="fas fa-users mr-1"></i>Tes Kirim ke Grup WA
+                                            </button>
+                                            <button type="button" class="btn btn-outline-info font-weight-bold mb-2" id="btn-test-send">
+                                                <i class="fab fa-whatsapp mr-1"></i>Tes Kirim ke Admin
                                             </button>
                                         </div>
                                     <?= form_close() ?>
@@ -358,29 +418,59 @@ $has_group = !empty($wa_setting->target_group);
                                             </thead>
                                             <tbody>
                                                 <tr>
-                                                    <td><span class="badge badge-danger px-2 py-1">!absen</span> <br><small class="text-muted">atau: absen, tidak ujian</small></td>
-                                                    <td>Menampilkan jumlah dan <b>nama-nama siswa yang belum/tidak mengikuti ujian hari ini</b> dikelompokkan per kelas.</td>
-                                                    <td><span class="badge badge-light border">Grup & Pribadi</span></td>
+                                                    <td><span class="badge badge-success px-2 py-1">!live</span></td>
+                                                    <td>Ringkasan live progres ujian hari ini (Mengerjakan, Selesai, Pakai Exambro vs Browser lain, Belum Pin Home).</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-success px-2 py-1">!rekap</span> <br><small class="text-muted">atau: rekap, rekap nilai</small></td>
-                                                    <td>Mengirimkan <b>rekapitulasi nilai ujian per mapel beserta lampiran file Excel (.xlsx)</b> dan link download langsung.</td>
-                                                    <td><span class="badge badge-light border">Grup & Pribadi</span></td>
+                                                    <td><span class="badge badge-info px-2 py-1">!jadwal</span> / <span class="badge badge-info px-2 py-1">!besok</span></td>
+                                                    <td>Menampilkan <b>jadwal ujian, kelas, jam/sesi, ruang, dan nama guru pengawas</b> untuk hari ini atau besok.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-info px-2 py-1">!server</span> <br><small class="text-muted">atau: server, cek server</small></td>
-                                                    <td>Menampilkan status beban CPU, RAM, jumlah siswa online detik ini, dan kesehatan server CBT.</td>
-                                                    <td><span class="badge badge-light border">Grup & Pribadi</span></td>
+                                                    <td><span class="badge badge-dark px-2 py-1">!kode</span></td>
+                                                    <td>Menampilkan <b>Kode Keluar Exambro</b> aktif hari ini, PIN darurat, dan status Wajib Exambro/Snapshot.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-warning px-2 py-1">!token</span> <br><small class="text-muted">atau: token, token ujian</small></td>
-                                                    <td>Menampilkan token ujian aktif hari ini untuk konfirmasi siswa.</td>
-                                                    <td><span class="badge badge-light border">Grup & Pribadi</span></td>
+                                                    <td><span class="badge badge-danger px-2 py-1">!pelanggaran</span></td>
+                                                    <td>Daftar siswa yang terdeteksi pindah layar atau login bukan dari Saduci Exambro beserta nama HP-nya.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td><span class="badge badge-secondary px-2 py-1">!menu</span> <br><small class="text-muted">atau: menu, bantuan</small></td>
-                                                    <td>Menampilkan menu bantuan interaktif dengan seluruh perintah monitoring.</td>
-                                                    <td><span class="badge badge-light border">Grup & Pribadi</span></td>
+                                                    <td><span class="badge badge-warning px-2 py-1">!reset &lt;NIS&gt;</span> <br><small class="text-muted">atau !reset semua</small></td>
+                                                    <td><b>Reset login 1 siswa</b> (via NIS/Nama) atau semua siswa aktif langsung dari grup WA (tercatat di Audit Trail).</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><span class="badge badge-danger px-2 py-1">!selesai &lt;NIS&gt;</span></td>
+                                                    <td><b>Paksa selesai</b> ujian siswa (jika HP siswa mati/rusak) langsung dari grup WA.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><span class="badge badge-primary px-2 py-1">!foto &lt;NIS&gt;</span></td>
+                                                    <td>Mengirim <b>bukti foto kamera depan terbaru</b> siswa langsung ke grup WA.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><span class="badge badge-success px-2 py-1">!siap</span></td>
+                                                    <td>Cek kesiapan ujian cepat (Pre-Flight Check): jadwal hari ini, bank soal kosong, ruang/sesi, &amp; sisa disk VPS.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><span class="badge badge-danger px-2 py-1">!absen</span></td>
+                                                    <td>Menampilkan jumlah dan <b>nama-nama siswa yang belum mengikuti ujian hari ini</b> per kelas.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><span class="badge badge-success px-2 py-1">!rekap</span></td>
+                                                    <td>Mengirimkan <b>rekapitulasi nilai ujian per mapel beserta file Excel (.xlsx)</b>.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><span class="badge badge-info px-2 py-1">!server</span> / <span class="badge badge-warning px-2 py-1">!token</span> / <span class="badge badge-secondary px-2 py-1">!menu</span></td>
+                                                    <td>Cek beban CPU/RAM/Disk VPS, token ujian aktif, atau tampilkan daftar lengkap perintah bot.</td>
+                                                    <td><span class="badge badge-primary">Grup Target</span></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -631,7 +721,39 @@ $(document).ready(function () {
         });
     });
 
-    // Kirim Pesan Tes
+    // Kirim Pesan Tes ke Grup WA
+    $('#btn-test-send-group').on('click', function () {
+        const groupTarget = ($('#target_group').val() || '').trim();
+        if (!groupTarget) {
+            Swal.fire('Grup Belum Dipilih', 'Pilih atau masukkan ID Grup WhatsApp terlebih dahulu lalu simpan pengaturan.', 'warning');
+            return;
+        }
+        const btn = $(this);
+        btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i>Mengirim ke Grup...');
+
+        $.ajax({
+            url: base_url + 'cbtwa/test_send',
+            type: 'POST',
+            data: { target: groupTarget },
+            dataType: 'json',
+            success: function (res) {
+                btn.prop('disabled', false).html('<i class="fas fa-users mr-1"></i>Tes Kirim ke Grup WA');
+                if (res.status) {
+                    Swal.fire('Terkirim ke Grup!', 'Pesan pengujian berhasil dikirim ke grup: ' + groupTarget, 'success').then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Gagal Kirim ke Grup!', res.reason || res.message || 'Periksa token Fonnte, status device, atau pastikan nomor bot ada di dalam grup.', 'error');
+                }
+            },
+            error: function () {
+                btn.prop('disabled', false).html('<i class="fas fa-users mr-1"></i>Tes Kirim ke Grup WA');
+                Swal.fire('Error!', 'Gagal menghubungi server', 'error');
+            }
+        });
+    });
+
+    // Kirim Pesan Tes ke Nomor Admin
     $('#btn-test-send').on('click', function () {
         const btn = $(this);
         btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i>Mengirim...');
@@ -642,7 +764,7 @@ $(document).ready(function () {
             data: { target: $('#target_admin').val() || $('#target_group').val() },
             dataType: 'json',
             success: function (res) {
-                btn.prop('disabled', false).html('<i class="fab fa-whatsapp mr-1"></i>Kirim Pesan Tes');
+                btn.prop('disabled', false).html('<i class="fab fa-whatsapp mr-1"></i>Tes Kirim ke Admin');
                 if (res.status) {
                     Swal.fire('Terkirim!', 'Pesan pengujian berhasil dikirim via Fonnte!', 'success').then(() => {
                         location.reload();
@@ -652,7 +774,7 @@ $(document).ready(function () {
                 }
             },
             error: function () {
-                btn.prop('disabled', false).html('<i class="fab fa-whatsapp mr-1"></i>Kirim Pesan Tes');
+                btn.prop('disabled', false).html('<i class="fab fa-whatsapp mr-1"></i>Tes Kirim ke Admin');
                 Swal.fire('Error!', 'Gagal menghubungi server', 'error');
             }
         });
@@ -739,6 +861,50 @@ $(document).ready(function () {
                 });
             }
         });
+    });
+
+    // Broadcast Jadwal & Pengawas (Hari Ini / Besok)
+    function triggerScheduleBroadcast(mode, btnSelector, originalHtml) {
+        const label = mode === 'tomorrow' ? 'BESOK' : 'HARI INI';
+        const btn = $(btnSelector);
+        Swal.fire({
+            title: 'Kirim Jadwal & Pengawas ' + label + '?',
+            text: 'Daftar mapel, ruang, sesi, dan nama guru pengawas ' + label + ' akan dikirim ke grup WA.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Kirim ke Grup WA',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-2"></i>Mengirim...');
+                $.ajax({
+                    url: base_url + 'cbtwa/broadcast_schedule',
+                    type: 'POST',
+                    data: { mode: mode },
+                    dataType: 'json',
+                    success: function (res) {
+                        btn.prop('disabled', false).html(originalHtml);
+                        if (res && res.status) {
+                            Swal.fire('Terkirim!', 'Jadwal ujian & nama pengawas ' + label + ' berhasil dikirim ke grup WA.', 'success');
+                        } else {
+                            Swal.fire('Gagal!', res?.reason || res?.message || 'Gagal mengirim jadwal.', 'error');
+                        }
+                    },
+                    error: function () {
+                        btn.prop('disabled', false).html(originalHtml);
+                        Swal.fire('Error!', 'Gagal menghubungi server.', 'error');
+                    }
+                });
+            }
+        });
+    }
+
+    $('#btn-broadcast-schedule-today').on('click', function () {
+        triggerScheduleBroadcast('today', '#btn-broadcast-schedule-today', '<i class="fas fa-sun mr-2"></i>Kirim Jadwal &amp; Pengawas HARI INI ke Grup WA');
+    });
+
+    $('#btn-broadcast-schedule-tomorrow').on('click', function () {
+        triggerScheduleBroadcast('tomorrow', '#btn-broadcast-schedule-tomorrow', '<i class="fas fa-calendar-day mr-2"></i>Kirim Jadwal &amp; Pengawas BESOK ke Grup WA');
     });
 });
 </script>
