@@ -315,6 +315,9 @@ class Cbtwa extends CI_Controller {
 
         echo "OK: " . date('Y-m-d H:i:s') . "\n";
     }
+
+    /**
+     * Webhook Fonnte untuk menerima pesan masuk dari WhatsApp
      * Fokus ketat: HANYA merespons perintah berawalan ! / # dari ID Grup yang terdaftar di target_group.
      * Chat pribadi dan grup lain otomatis diabaikan.
      * URL Webhook: https://domain-anda.sch.id/cbtwa/webhook
