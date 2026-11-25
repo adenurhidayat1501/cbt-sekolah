@@ -25,6 +25,8 @@ uploads/*
 !uploads/import/**
 !uploads/rekap/
 !uploads/rekap/**
+!uploads/wa_banner/
+!uploads/wa_banner/banner_default.jpg
 
 # Dependencies
 /vendor/

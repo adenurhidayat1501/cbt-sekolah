@@ -54,6 +54,7 @@ class Cbtwa extends CI_Controller {
             'subjudul' => 'Integrasi Fonnte Gateway & Monitoring WA',
             'setting' => $setting,
             'wa_setting' => $wa_setting,
+            'banner_info' => $this->wa->getActiveBannerInfo($wa_setting),
             'webhook_url' => base_url('cbtwa/webhook'),
         ];
 
@@ -114,6 +115,8 @@ class Cbtwa extends CI_Controller {
         $morning_time = trim($this->input->post('schedule_morning_time', true) ?? '05:00');
         if (!preg_match('/^\d{2}:\d{2}$/', $afternoon_time)) $afternoon_time = '15:00';
         if (!preg_match('/^\d{2}:\d{2}$/', $morning_time)) $morning_time = '05:00';
+        $banner_enabled = $this->input->post('banner_enabled', true) ? 1 : 0;
+        $reset_banner = $this->input->post('reset_banner', true) ? 1 : 0;
 
         $update_data = [
             'api_token' => $api_token,
@@ -125,7 +128,44 @@ class Cbtwa extends CI_Controller {
             'auto_schedule_enabled' => $auto_schedule_enabled,
             'schedule_afternoon_time' => $afternoon_time,
             'schedule_morning_time' => $morning_time,
+            'banner_enabled' => $banner_enabled,
         ];
+
+        if ($reset_banner) {
+            $update_data['banner_path'] = 'uploads/wa_banner/banner_default.jpg';
+        } elseif (!empty($_FILES['banner_file']['name']) && isset($_FILES['banner_file']['error']) && $_FILES['banner_file']['error'] === UPLOAD_ERR_OK) {
+            $origName = (string) $_FILES['banner_file']['name'];
+            $tmpPath  = (string) $_FILES['banner_file']['tmp_name'];
+            $fileSize = intval($_FILES['banner_file']['size'] ?? 0);
+            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+                $this->output_json(['status' => false, 'message' => 'Format banner harus JPG, JPEG, PNG, atau WEBP']);
+                return;
+            }
+            if ($fileSize > 2 * 1024 * 1024) {
+                $this->output_json(['status' => false, 'message' => 'Ukuran file banner maksimal 2 MB']);
+                return;
+            }
+            $imgCheck = @getimagesize($tmpPath);
+            if ($imgCheck === false) {
+                $this->output_json(['status' => false, 'message' => 'File yang diunggah bukan gambar valid']);
+                return;
+            }
+
+            $dirRel = 'uploads/wa_banner';
+            $dirAbs = FCPATH . $dirRel;
+            if (!is_dir($dirAbs)) {
+                @mkdir($dirAbs, 0775, true);
+            }
+            $newFile = 'banner_custom_' . date('Ymd_His') . '.' . $ext;
+            $destAbs = $dirAbs . DIRECTORY_SEPARATOR . $newFile;
+            if (!@move_uploaded_file($tmpPath, $destAbs)) {
+                $this->output_json(['status' => false, 'message' => 'Gagal menyimpan file banner ke server (cek izin folder uploads/wa_banner)']);
+                return;
+            }
+            $update_data['banner_path'] = $dirRel . '/' . $newFile;
+        }
 
         $res = $this->wa->saveSetting($update_data);
         if ($res) {

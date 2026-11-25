@@ -279,7 +279,7 @@ $has_group = !empty($wa_setting->target_group);
                         <div class="tab-pane fade" id="tab-setting" role="tabpanel">
                             <div class="row">
                                 <div class="col-12 col-lg-7 mb-4">
-                                    <?= form_open('', ['id' => 'form-wa-setting']) ?>
+                                    <?= form_open_multipart('', ['id' => 'form-wa-setting']) ?>
                                         <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
                                         <div class="form-group">
                                             <label class="font-weight-bold">
@@ -346,6 +346,33 @@ $has_group = !empty($wa_setting->target_group);
                                             </div>
                                             <small class="text-muted d-block mt-2">
                                                 Hanya dikirim jika ada jadwal ujian aktif pada tanggal tersebut (tidak spam saat hari libur).
+                                            </small>
+                                        </div>
+
+                                        <!-- Pengaturan Banner Gambar Bot WA -->
+                                        <div class="p-3 rounded border bg-light mb-3">
+                                            <div class="custom-control custom-switch mb-2">
+                                                <input type="checkbox" class="custom-control-input" id="banner_enabled" name="banner_enabled" value="1" <?= !isset($wa_setting->banner_enabled) || $wa_setting->banner_enabled == 1 ? 'checked' : '' ?>>
+                                                <label class="custom-control-label font-weight-bold text-dark" for="banner_enabled">
+                                                    <i class="fas fa-image text-primary mr-1"></i>Sertakan Banner Gambar di Setiap Pesan Bot WA
+                                                </label>
+                                            </div>
+                                            <div class="mb-2">
+                                                <?php $bannerPreviewUrl = !empty($banner_info['url']) ? $banner_info['url'] : base_url('uploads/wa_banner/banner_default.jpg'); ?>
+                                                <img id="wa-banner-preview" src="<?= html_escape($bannerPreviewUrl) ?>?v=<?= time() ?>" alt="Banner Bot WA" class="img-fluid rounded border shadow-sm" style="max-height: 150px; object-fit: cover;">
+                                            </div>
+                                            <div class="d-flex flex-wrap align-items-center">
+                                                <input type="file" name="banner_file" id="banner_file" accept="image/jpeg,image/png,image/webp" class="form-control-file text-xs mr-2" style="max-width: 260px;">
+                                                <input type="hidden" name="reset_banner" id="reset_banner" value="0">
+                                                <?php if (!empty($banner_info['rel_path']) && $banner_info['rel_path'] !== 'uploads/wa_banner/banner_default.jpg'): ?>
+                                                    <button type="button" id="btn-reset-banner" class="btn btn-xs btn-outline-secondary mt-1">
+                                                        <i class="fas fa-undo mr-1"></i>Kembali ke Banner Default
+                                                    </button>
+                                                <?php endif; ?>
+                                            </div>
+                                            <small class="text-muted d-block mt-2">
+                                                Banner otomatis muncul di bagian atas setiap pesan bot (kecuali <code>!rekap</code> Excel &amp; <code>!foto</code> siswa).
+                                                <br><i class="fas fa-info-circle text-info mr-1"></i>Membutuhkan paket Fonnte yang mendukung media (<b>Super / Advanced / Ultra</b>). Jika paket Fonnte Free/Regular, bot otomatis tetap mengirim sebagai teks agar pesan tidak gagal.
                                             </small>
                                         </div>
 
@@ -687,16 +714,40 @@ $(document).ready(function () {
         });
     });
 
-    // Simpan Pengaturan
+    // Preview Banner Lokal saat dipilih
+    $('#banner_file').on('change', function () {
+        const file = this.files && this.files[0];
+        if (file) {
+            $('#reset_banner').val('0');
+            const reader = new FileReader();
+            reader.onload = function (ev) {
+                $('#wa-banner-preview').attr('src', ev.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    $('#btn-reset-banner').on('click', function () {
+        $('#reset_banner').val('1');
+        $('#banner_file').val('');
+        $('#wa-banner-preview').attr('src', base_url + 'uploads/wa_banner/banner_default.jpg?v=' + Date.now());
+        toastr.info('Banner default dipilih. Klik "Simpan Pengaturan" untuk menerapkan.');
+    });
+
+    // Simpan Pengaturan (FormData untuk mendukung upload gambar banner)
     $('#form-wa-setting').on('submit', function (e) {
         e.preventDefault();
         const btn = $('#btn-save-setting');
         btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i>Menyimpan...');
 
+        const formData = new FormData(this);
+
         $.ajax({
             url: base_url + 'cbtwa/save_setting',
             type: 'POST',
-            data: $(this).serialize(),
+            data: formData,
+            processData: false,
+            contentType: false,
             dataType: 'json',
             success: function (res) {
                 btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Pengaturan');
@@ -739,7 +790,8 @@ $(document).ready(function () {
             success: function (res) {
                 btn.prop('disabled', false).html('<i class="fas fa-users mr-1"></i>Tes Kirim ke Grup WA');
                 if (res.status) {
-                    Swal.fire('Terkirim ke Grup!', 'Pesan pengujian berhasil dikirim ke grup: ' + groupTarget, 'success').then(() => {
+                    const note = res.banner_note ? ('\n\nCatatan: ' + res.banner_note) : '';
+                    Swal.fire('Terkirim ke Grup!', 'Pesan pengujian berhasil dikirim ke grup: ' + groupTarget + note, 'success').then(() => {
                         location.reload();
                     });
                 } else {
@@ -766,7 +818,8 @@ $(document).ready(function () {
             success: function (res) {
                 btn.prop('disabled', false).html('<i class="fab fa-whatsapp mr-1"></i>Tes Kirim ke Admin');
                 if (res.status) {
-                    Swal.fire('Terkirim!', 'Pesan pengujian berhasil dikirim via Fonnte!', 'success').then(() => {
+                    const note = res.banner_note ? ('\n\nCatatan: ' + res.banner_note) : '';
+                    Swal.fire('Terkirim!', 'Pesan pengujian berhasil dikirim via Fonnte!' + note, 'success').then(() => {
                         location.reload();
                     });
                 } else {

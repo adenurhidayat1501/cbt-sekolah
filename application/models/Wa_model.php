@@ -94,6 +94,13 @@ class Wa_model extends CI_Model {
         if (!$this->db->field_exists('last_morning_sent_date', 'cbt_wa_setting')) {
             @$this->db->query("ALTER TABLE `cbt_wa_setting` ADD COLUMN `last_morning_sent_date` date NULL DEFAULT NULL");
         }
+        // Auto-migrasi kolom banner gambar pesan Bot WA
+        if (!$this->db->field_exists('banner_enabled', 'cbt_wa_setting')) {
+            @$this->db->query("ALTER TABLE `cbt_wa_setting` ADD COLUMN `banner_enabled` tinyint(1) NOT NULL DEFAULT 1");
+        }
+        if (!$this->db->field_exists('banner_path', 'cbt_wa_setting')) {
+            @$this->db->query("ALTER TABLE `cbt_wa_setting` ADD COLUMN `banner_path` varchar(255) NOT NULL DEFAULT 'uploads/wa_banner/banner_default.jpg'");
+        }
     }
 
     /**
@@ -166,11 +173,107 @@ class Wa_model extends CI_Model {
     }
 
     /**
-     * Mengirim pesan atau dokumen via Fonnte API
-     * 
-     * Catatan: Fonnte & WhatsApp Cloud API telah resmi menonaktifkan fitur tombol interaktif (buttons).
-     * Oleh karena itu, semua pesan dikirim sebagai pesan teks rapi dengan kata kunci perintah yang jelas.
-     * 
+     * Ambil informasi file banner aktif untuk pesan WA Bot
+     *
+     * @param object|null $setting
+     * @return array|null
+     */
+    public function getActiveBannerInfo($setting = null) {
+        if (!$setting) {
+            $setting = $this->getSetting();
+        }
+        $defaultRel = 'uploads/wa_banner/banner_default.jpg';
+        $rel = !empty($setting->banner_path) ? ltrim(str_replace('\\', '/', trim($setting->banner_path)), '/') : $defaultRel;
+
+        $abs = FCPATH . $rel;
+        if (!file_exists($abs) || !is_file($abs)) {
+            $rel = $defaultRel;
+            $abs = FCPATH . $rel;
+        }
+        if (!file_exists($abs) || !is_file($abs)) {
+            return null;
+        }
+
+        $ext = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
+        $mimeMap = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+            'webp' => 'image/webp',
+        ];
+        $mime = $mimeMap[$ext] ?? 'image/jpeg';
+
+        return [
+            'rel_path' => $rel,
+            'abs_path' => $abs,
+            'url'      => base_url($rel),
+            'filename' => basename($abs),
+            'mime'     => $mime,
+        ];
+    }
+
+    /**
+     * Eksekusi HTTP POST ke endpoint Fonnte /send
+     */
+    private function executeFonnteSend($token, $post_data) {
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL => 'https://api.fonnte.com/send',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => $post_data,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: ' . trim($token)
+            ],
+        ]);
+
+        $response = curl_exec($curl);
+        $err = curl_error($curl);
+        $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        @curl_close($curl);
+
+        $is_success = ($http_code == 200 && empty($err));
+        $resp_json = json_decode($response, true);
+        if (isset($resp_json['status']) && $resp_json['status'] === false) {
+            $is_success = false;
+        }
+
+        $reason = '';
+        if (isset($resp_json['reason'])) {
+            $reason = $resp_json['reason'];
+        } else if (isset($resp_json['message'])) {
+            $reason = $resp_json['message'];
+        } else if (!empty($err)) {
+            $reason = 'cURL Error: ' . $err;
+        } else if (!$is_success) {
+            $reason = 'Gagal menghubungi server Fonnte (HTTP ' . $http_code . ')';
+        } else {
+            $reason = 'Pesan berhasil dikirim via Fonnte';
+        }
+
+        return [
+            'status'    => $is_success,
+            'http_code' => $http_code,
+            'message'   => $reason,
+            'reason'    => $reason,
+            'response'  => $resp_json ?: $response,
+            'raw'       => $response,
+            'error'     => $err,
+        ];
+    }
+
+    /**
+     * Mengirim pesan, gambar banner, atau dokumen via Fonnte API
+     *
+     * Catatan: Jika banner aktif dan tidak ada lampiran khusus ($url kosong),
+     * banner gambar otomatis disertakan (via CURLFile agar jalan di HTTP & Cron CLI).
+     * Jika paket Fonnte tidak mendukung media (Free/Regular), sistem otomatis fallback ke teks saja.
+     *
      * @param string $target
      * @param string $message
      * @param string|null $url
@@ -213,66 +316,55 @@ class Wa_model extends CI_Model {
             $post_data['countryCode'] = '62';
         }
 
-        // Lampiran file dokumen (misalnya file Excel rekap nilai)
+        $used_auto_banner = false;
+        $msg_type = 'text';
+
+        // Lampiran file dokumen/foto spesifik (misalnya file Excel rekap nilai atau !foto siswa)
         if (!empty($url)) {
             $post_data['url'] = $url;
-        }
-        if (!empty($filename)) {
-            $post_data['filename'] = $filename;
-        }
-
-        $curl = curl_init();
-        curl_setopt_array($curl, [
-            CURLOPT_URL => 'https://api.fonnte.com/send',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 25,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $post_data,
-            CURLOPT_HTTPHEADER => [
-                'Authorization: ' . trim($setting->api_token)
-            ],
-        ]);
-
-        $response = curl_exec($curl);
-        $err = curl_error($curl);
-        $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        @curl_close($curl);
-
-        $is_success = ($http_code == 200 && empty($err));
-        $resp_json = json_decode($response, true);
-        if (isset($resp_json['status']) && $resp_json['status'] === false) {
-            $is_success = false;
-        }
-
-        // Tangkap pesan status / alasan dari server Fonnte secara spesifik
-        $reason = '';
-        if (isset($resp_json['reason'])) {
-            $reason = $resp_json['reason'];
-        } else if (isset($resp_json['message'])) {
-            $reason = $resp_json['message'];
-        } else if (!empty($err)) {
-            $reason = 'cURL Error: ' . $err;
-        } else if (!$is_success) {
-            $reason = 'Gagal menghubungi server Fonnte (HTTP ' . $http_code . ')';
+            if (!empty($filename)) {
+                $post_data['filename'] = $filename;
+            }
+            $msg_type = 'document';
         } else {
-            $reason = 'Pesan berhasil dikirim via Fonnte';
+            // Sertakan banner gambar otomatis jika diaktifkan di Pengaturan WA
+            $bannerEnabled = !isset($setting->banner_enabled) || intval($setting->banner_enabled) === 1;
+            if ($bannerEnabled && class_exists('CURLFile')) {
+                $banner = $this->getActiveBannerInfo($setting);
+                if ($banner) {
+                    $post_data['file'] = new CURLFile($banner['abs_path'], $banner['mime'], $banner['filename']);
+                    $used_auto_banner = true;
+                    $msg_type = 'image_banner';
+                }
+            }
+        }
+
+        $res = $this->executeFonnteSend($setting->api_token, $post_data);
+
+        // Smart fallback: jika pengiriman dengan auto-banner ditolak (misal paket Fonnte Free/Regular tidak support attachment),
+        // otomatis kirim ulang sebagai pesan teks agar notifikasi tidak pernah gagal terkirim.
+        if (!$res['status'] && $used_auto_banner) {
+            $lowerReason = strtolower((string) $res['reason']);
+            $isFatalAuth = (strpos($lowerReason, 'invalid token') !== false || strpos($lowerReason, 'disconnect') !== false);
+            if (!$isFatalAuth) {
+                $bannerFailReason = $res['reason'];
+                unset($post_data['file']);
+                $fallback = $this->executeFonnteSend($setting->api_token, $post_data);
+                if ($fallback['status']) {
+                    $fallback['banner_fallback'] = true;
+                    $fallback['banner_note'] = "Banner dilewati ({$bannerFailReason}); pesan tetap terkirim sebagai teks.";
+                    $this->logMessage('out', 'SADUCI CBT', $clean_target, $message, 'text_fallback', 'SUCCESS', $fallback['banner_note'] . ' | ' . ($fallback['raw'] ?: ''));
+                    unset($fallback['raw']);
+                    return $fallback;
+                }
+            }
         }
 
         // Catat ke log
-        $this->logMessage('out', 'SADUCI CBT', $clean_target, $message, !empty($url) ? 'document' : 'text', $is_success ? 'SUCCESS' : 'FAILED', $response ?: $reason);
+        $this->logMessage('out', 'SADUCI CBT', $clean_target, $message, $msg_type, $res['status'] ? 'SUCCESS' : 'FAILED', $res['raw'] ?: $res['reason']);
+        unset($res['raw']);
 
-        return [
-            'status' => $is_success,
-            'http_code' => $http_code,
-            'message' => $reason,
-            'reason' => $reason,
-            'response' => $resp_json ?: $response,
-            'error' => $err
-        ];
+        return $res;
     }
 
     /**
