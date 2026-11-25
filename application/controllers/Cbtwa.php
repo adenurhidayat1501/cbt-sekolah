@@ -48,6 +48,15 @@ class Cbtwa extends CI_Controller {
         $setting = $this->dashboard->getSetting();
         $wa_setting = $this->wa->getSetting();
 
+        // Simpan URL publik situs secara otomatis agar Cron CLI (jam 15:00 & 05:00) juga punya URL publik untuk banner
+        $curBase = rtrim(base_url(), '/');
+        if ($curBase !== '' && stripos($curBase, 'localhost') === false && stripos($curBase, '127.0.0.1') === false) {
+            if (($wa_setting->site_base_url ?? '') !== $curBase) {
+                $this->wa->saveSetting(['site_base_url' => $curBase]);
+                $wa_setting->site_base_url = $curBase;
+            }
+        }
+
         $data = [
             'user' => $user,
             'judul' => 'WhatsApp Bot & Notifikasi',

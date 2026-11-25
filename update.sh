@@ -196,8 +196,8 @@ if [ "$DOCKER_RUNNING" = true ]; then
         done <<< "$CHANGED_FILES"
     fi
 
-    # Bersihkan cache di container
-    docker exec saduci_cbt_app bash -c "rm -rf /var/www/html/application/cache/*" 2>/dev/null || true
+    # Bersihkan cache & pastikan folder upload dinamis writable di dalam container
+    docker exec saduci_cbt_app bash -c "mkdir -p /var/www/html/uploads/wa_banner /var/www/html/uploads/rekap /var/www/html/uploads/exambro_snapshots /var/www/html/uploads/temp && chown -R www-data:www-data /var/www/html/uploads/wa_banner /var/www/html/uploads/rekap /var/www/html/uploads/exambro_snapshots /var/www/html/uploads/temp && chmod -R 775 /var/www/html/uploads/wa_banner /var/www/html/uploads/rekap /var/www/html/uploads/exambro_snapshots /var/www/html/uploads/temp && rm -rf /var/www/html/application/cache/*" 2>/dev/null || true
 
     echo -e "${BLUE}[5/5] Me-reload Apache di dalam container Docker (tanpa rebuild)...${NC}"
     docker exec saduci_cbt_app apachectl graceful 2>/dev/null || docker restart saduci_cbt_app
@@ -219,6 +219,9 @@ else
              "$APP_DIR/uploads/foto_siswa" \
              "$APP_DIR/uploads/profiles" \
              "$APP_DIR/uploads/temp" \
+             "$APP_DIR/uploads/wa_banner" \
+             "$APP_DIR/uploads/rekap" \
+             "$APP_DIR/uploads/exambro_snapshots" \
              "$APP_DIR/backups/daily" \
              "$APP_DIR/application/logs" \
              "$APP_DIR/application/cache"
@@ -233,6 +236,10 @@ else
             fi
         done <<< "$CHANGED_FILES"
     fi
+
+    # Pastikan folder upload dinamis (banner WA, rekap Excel, snapshot kamera, temp) selalu writable oleh www-data
+    chown -R www-data:www-data "$APP_DIR/uploads/wa_banner" "$APP_DIR/uploads/rekap" "$APP_DIR/uploads/exambro_snapshots" "$APP_DIR/uploads/temp" "$APP_DIR/uploads/import" 2>/dev/null || true
+    chmod -R 775 "$APP_DIR/uploads/wa_banner" "$APP_DIR/uploads/rekap" "$APP_DIR/uploads/exambro_snapshots" "$APP_DIR/uploads/temp" "$APP_DIR/uploads/import" 2>/dev/null || true
 
     chmod -R 775 "$APP_DIR/application/cache" "$APP_DIR/application/logs" 2>/dev/null || true
     chown -R www-data:www-data "$APP_DIR/application/cache" "$APP_DIR/application/logs" 2>/dev/null || true

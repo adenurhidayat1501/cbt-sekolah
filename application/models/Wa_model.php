@@ -101,6 +101,9 @@ class Wa_model extends CI_Model {
         if (!$this->db->field_exists('banner_path', 'cbt_wa_setting')) {
             @$this->db->query("ALTER TABLE `cbt_wa_setting` ADD COLUMN `banner_path` varchar(255) NOT NULL DEFAULT 'uploads/wa_banner/banner_default.jpg'");
         }
+        if (!$this->db->field_exists('site_base_url', 'cbt_wa_setting')) {
+            @$this->db->query("ALTER TABLE `cbt_wa_setting` ADD COLUMN `site_base_url` varchar(255) NULL DEFAULT ''");
+        }
     }
 
     /**
@@ -203,12 +206,23 @@ class Wa_model extends CI_Model {
         ];
         $mime = $mimeMap[$ext] ?? 'image/jpeg';
 
+        $publicBase = '';
+        if (!empty($setting->site_base_url) && stripos($setting->site_base_url, 'localhost') === false && stripos($setting->site_base_url, '127.0.0.1') === false) {
+            $publicBase = rtrim(trim($setting->site_base_url), '/') . '/';
+        } else {
+            $curBase = base_url();
+            if (stripos($curBase, 'localhost') === false && stripos($curBase, '127.0.0.1') === false) {
+                $publicBase = rtrim($curBase, '/') . '/';
+            }
+        }
+
         return [
-            'rel_path' => $rel,
-            'abs_path' => $abs,
-            'url'      => base_url($rel),
-            'filename' => basename($abs),
-            'mime'     => $mime,
+            'rel_path'   => $rel,
+            'abs_path'   => $abs,
+            'url'        => base_url($rel),
+            'public_url' => $publicBase !== '' ? ($publicBase . $rel) : '',
+            'filename'   => basename($abs),
+            'mime'       => $mime,
         ];
     }
 
@@ -326,6 +340,8 @@ class Wa_model extends CI_Model {
         $msg_type = 'text';
 
         // Lampiran file dokumen/foto spesifik (misalnya file Excel rekap nilai atau !foto siswa)
+        $banner_info = null;
+        $banner_mode = '';
         if (!empty($url)) {
             $post_data['url'] = $url;
             if (!empty($filename)) {
@@ -335,17 +351,40 @@ class Wa_model extends CI_Model {
         } else {
             // Sertakan banner gambar otomatis jika diaktifkan di Pengaturan WA
             $bannerEnabled = !isset($setting->banner_enabled) || intval($setting->banner_enabled) === 1;
-            if ($bannerEnabled && class_exists('CURLFile')) {
-                $banner = $this->getActiveBannerInfo($setting);
-                if ($banner) {
-                    $post_data['file'] = new CURLFile($banner['abs_path'], $banner['mime'], $banner['filename']);
-                    $used_auto_banner = true;
-                    $msg_type = 'image_banner';
+            if ($bannerEnabled) {
+                $banner_info = $this->getActiveBannerInfo($setting);
+                if ($banner_info) {
+                    // Prioritas 1: URL publik HTTPS (paling kompatibel di Fonnte API Super/Advanced/Ultra)
+                    if (!empty($banner_info['public_url'])) {
+                        $post_data['url'] = $banner_info['public_url'];
+                        $post_data['filename'] = $banner_info['filename'];
+                        $used_auto_banner = true;
+                        $banner_mode = 'url';
+                        $msg_type = 'image_banner';
+                    } elseif (class_exists('CURLFile')) {
+                        // Prioritas 2: Upload binary CURLFile (jika localhost / CLI tanpa public_url)
+                        $post_data['file'] = new CURLFile($banner_info['abs_path'], $banner_info['mime'], $banner_info['filename']);
+                        $used_auto_banner = true;
+                        $banner_mode = 'file';
+                        $msg_type = 'image_banner';
+                    }
                 }
             }
         }
 
         $res = $this->executeFonnteSend($setting->api_token, $post_data);
+
+        // Jika mode 'url' gagal, coba ulang dengan upload langsung CURLFile sebelum fallback ke teks
+        if (!$res['status'] && $used_auto_banner && $banner_mode === 'url' && $banner_info && class_exists('CURLFile')) {
+            $lowerReason = strtolower((string) $res['reason']);
+            $isFatalAuth = (strpos($lowerReason, 'invalid token') !== false || strpos($lowerReason, 'disconnect') !== false);
+            if (!$isFatalAuth) {
+                unset($post_data['url']);
+                $post_data['file'] = new CURLFile($banner_info['abs_path'], $banner_info['mime'], $banner_info['filename']);
+                $res = $this->executeFonnteSend($setting->api_token, $post_data);
+                $banner_mode = 'file';
+            }
+        }
 
         // Smart fallback: jika pengiriman dengan auto-banner ditolak (misal paket Fonnte Free/Regular tidak support attachment),
         // otomatis kirim ulang sebagai pesan teks agar notifikasi tidak pernah gagal terkirim.
@@ -354,7 +393,7 @@ class Wa_model extends CI_Model {
             $isFatalAuth = (strpos($lowerReason, 'invalid token') !== false || strpos($lowerReason, 'disconnect') !== false);
             if (!$isFatalAuth) {
                 $bannerFailReason = $res['reason'];
-                unset($post_data['file']);
+                unset($post_data['file'], $post_data['url'], $post_data['filename']);
                 $fallback = $this->executeFonnteSend($setting->api_token, $post_data);
                 if ($fallback['status']) {
                     $fallback['banner_fallback'] = true;
