@@ -133,6 +133,23 @@ function sortByPosition($a, $b)
                                                         </table>
                                                     </div>
                                                 <?php endif; ?>
+                                                <div class="mb-2 mt-1">
+                                                    <div class="input-group input-group-sm">
+                                                        <div class="input-group-prepend">
+                                                            <span class="input-group-text bg-light text-success" title="Nomor WhatsApp Guru (untuk auto-tag notifikasi jadwal)"><i class="fab fa-whatsapp"></i></span>
+                                                        </div>
+                                                        <input type="tel" class="form-control input-no-hp-guru"
+                                                               data-id="<?= $guru->id_guru ?>"
+                                                               value="<?= html_escape($guru->no_hp ?? '') ?>"
+                                                               placeholder="No. WA (contoh: 0812xxx)">
+                                                        <div class="input-group-append">
+                                                            <button type="button" class="btn btn-outline-success btn-save-hp-guru"
+                                                                    data-id="<?= $guru->id_guru ?>" title="Simpan Nomor WA">
+                                                                <i class="fas fa-save"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <div class="row mt-auto">
                                                     <a href="<?= base_url('dataguru/edit/' . $guru->id_guru) ?>"
                                                        class="btn btn-sm btn-outline-primary"><i
@@ -223,6 +240,49 @@ function sortByPosition($a, $b)
             paging: false,
             ordering: false,
             info: false,
+        });
+
+        function saveNoHpGuru(idGuru, inputEl, btnEl) {
+            var hp = (inputEl.val() || '').trim();
+            var origHtml = btnEl.html();
+            btnEl.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
+            $.ajax({
+                url: base_url + 'dataguru/updateNoHp',
+                type: 'POST',
+                dataType: 'json',
+                data: $('#hapus-guru').serialize() + '&id_guru=' + encodeURIComponent(idGuru) + '&no_hp=' + encodeURIComponent(hp),
+                success: function (res) {
+                    btnEl.prop('disabled', false).html(origHtml);
+                    if (res && res.status) {
+                        inputEl.val(res.no_hp || '');
+                        if (typeof toastr !== 'undefined') {
+                            toastr.success(res.message || 'Nomor WA berhasil disimpan');
+                        } else {
+                            swal.fire({ title: 'Tersimpan', text: res.message || 'Nomor WA berhasil disimpan', icon: 'success', timer: 1200, showConfirmButton: false });
+                        }
+                    } else {
+                        swal.fire('Gagal', (res && res.message) || 'Gagal menyimpan nomor WA', 'error');
+                    }
+                },
+                error: function () {
+                    btnEl.prop('disabled', false).html(origHtml);
+                    swal.fire('Error', 'Gagal menghubungi server', 'error');
+                }
+            });
+        }
+
+        $(document).on('click', '.btn-save-hp-guru', function () {
+            var idGuru = $(this).data('id');
+            var inputEl = $(this).closest('.input-group').find('.input-no-hp-guru');
+            saveNoHpGuru(idGuru, inputEl, $(this));
+        });
+
+        $(document).on('keydown', '.input-no-hp-guru', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var btnEl = $(this).closest('.input-group').find('.btn-save-hp-guru');
+                saveNoHpGuru($(this).data('id'), $(this), btnEl);
+            }
         });
         /*
         $(`img.avatar`).each(function () {

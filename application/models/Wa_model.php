@@ -314,6 +314,12 @@ class Wa_model extends CI_Model {
         // countryCode HANYA dikirim jika target adalah nomor perorangan (bukan grup @g.us)
         if (!$is_group) {
             $post_data['countryCode'] = '62';
+        } else {
+            // Auto-deteksi mention @628xxxxxxxxxx untuk grup WA agar pengawas benar-benar ter-tag (mendapat notifikasi mention)
+            if (preg_match_all('/@(62\d{8,14})\b/', (string) $message, $mMentions) && !empty($mMentions[1])) {
+                $uniqueMentions = array_values(array_unique($mMentions[1]));
+                $post_data['mentions'] = implode(',', $uniqueMentions);
+            }
         }
 
         $used_auto_banner = false;
@@ -944,6 +950,75 @@ class Wa_model extends CI_Model {
     }
 
     /**
+     * Normalisasi nomor HP Indonesia menjadi format WA internasional (628xxxxxxxxxx)
+     * Mengembalikan null jika kosong atau tidak valid.
+     */
+    public function normalizeWaNumber($raw) {
+        $digits = preg_replace('/[^0-9]/', '', (string) $raw);
+        if ($digits === '') {
+            return null;
+        }
+        if (substr($digits, 0, 1) === '0') {
+            $digits = '62' . substr($digits, 1);
+        } elseif (substr($digits, 0, 1) === '8' && strlen($digits) >= 9 && strlen($digits) <= 13) {
+            $digits = '62' . $digits;
+        }
+        if (substr($digits, 0, 2) !== '62' || strlen($digits) < 10 || strlen($digits) > 15) {
+            return null;
+        }
+        return $digits;
+    }
+
+    /**
+     * Ambil daftar semua guru beserta nomor WA (dari master_guru.no_hp)
+     */
+    public function getAllGuruWaList() {
+        $rows = $this->db->select('id_guru, nama_guru, nip, no_hp')
+            ->from('master_guru')
+            ->order_by('nama_guru', 'ASC')
+            ->get()
+            ->result();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $wa = $this->normalizeWaNumber($r->no_hp ?? '');
+            $out[] = [
+                'id_guru'   => intval($r->id_guru),
+                'nama_guru' => $r->nama_guru,
+                'nip'       => $r->nip,
+                'no_hp'     => $r->no_hp ?? '',
+                'wa_tag'    => $wa ? ('@' . $wa) : null,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Simpan massal nomor HP/WA guru ke master_guru.no_hp
+     *
+     * @param array $phoneMap [id_guru => no_hp]
+     * @return int jumlah baris diperbarui
+     */
+    public function saveGuruWaNumbers($phoneMap) {
+        if (!is_array($phoneMap) || empty($phoneMap)) {
+            return 0;
+        }
+        // Pastikan kolom no_hp cukup menampung hingga 20 karakter (misal 62812345678901)
+        @$this->db->query("ALTER TABLE `master_guru` MODIFY COLUMN `no_hp` varchar(20) NULL DEFAULT NULL");
+
+        $updated = 0;
+        foreach ($phoneMap as $idGuru => $rawPhone) {
+            $gid = intval($idGuru);
+            if ($gid <= 0) continue;
+            $clean = preg_replace('/[^0-9+]/', '', trim((string) $rawPhone));
+            $clean = substr($clean, 0, 20);
+            $this->db->where('id_guru', $gid)->update('master_guru', ['no_hp' => $clean]);
+            $updated++;
+        }
+        return $updated;
+    }
+
+    /**
      * Format tanggal Indonesia (contoh: Rabu, 25 November 2026)
      */
     private function formatTanggalIndo($dateYmd) {
@@ -1042,8 +1117,16 @@ class Wa_model extends CI_Model {
                 }
                 $guruMap = [];
                 if (!empty($guruIds)) {
-                    foreach ($this->master->getGuruByArrId($guruIds) as $g) {
-                        $guruMap[$g->id_guru] = $g->nama_guru;
+                    $gRows = $this->db->select('id_guru, nama_guru, no_hp')
+                        ->where_in('id_guru', $guruIds)
+                        ->get('master_guru')
+                        ->result();
+                    foreach ($gRows as $g) {
+                        $waNum = $this->normalizeWaNumber($g->no_hp ?? '');
+                        $guruMap[(string) $g->id_guru] = [
+                            'nama' => $g->nama_guru,
+                            'wa'   => $waNum,
+                        ];
                     }
                 }
 
@@ -1058,7 +1141,12 @@ class Wa_model extends CI_Model {
                     foreach (explode(',', (string) $pr->id_guru) as $gid) {
                         $gid = trim($gid);
                         if (isset($guruMap[$gid])) {
-                            $gNames[] = $guruMap[$gid];
+                            $info = $guruMap[$gid];
+                            if (!empty($info['wa'])) {
+                                $gNames[] = "{$info['nama']} (@{$info['wa']})";
+                            } else {
+                                $gNames[] = $info['nama'];
+                            }
                         }
                     }
                     $pengawasStr = !empty($gNames) ? implode(', ', $gNames) : '_Belum ditentukan_';

@@ -253,17 +253,22 @@ $has_group = !empty($wa_setting->target_group);
                                         </div>
                                         <div class="card-body">
                                             <p class="text-sm text-muted mb-3">
-                                                Mengirim daftar mata pelajaran, kelas, jam/sesi, ruang, dan <b>nama guru pengawas</b> langsung ke grup WA. Secara otomatis sistem mengirim pengingat <b>jadwal besok jam <?= html_escape($wa_setting->schedule_afternoon_time ?? '15:00') ?> WIB</b> dan <b>jadwal hari ini + Kode Exambro jam <?= html_escape($wa_setting->schedule_morning_time ?? '05:00') ?> WIB</b> (jika ada jadwal ujian).
+                                                Mengirim daftar mata pelajaran, kelas, jam/sesi, ruang, dan <b>nama guru pengawas beserta tag/mention WA (<code>@628...</code>)</b> langsung ke grup WA agar HP pengawas berbunyi. Secara otomatis sistem mengirim pengingat <b>jadwal besok jam <?= html_escape($wa_setting->schedule_afternoon_time ?? '15:00') ?> WIB</b> dan <b>jadwal hari ini + Kode Exambro jam <?= html_escape($wa_setting->schedule_morning_time ?? '05:00') ?> WIB</b> (jika ada jadwal ujian).
                                             </p>
                                             <div class="row">
-                                                <div class="col-12 col-md-6 mb-2 mb-md-0">
+                                                <div class="col-12 col-md-4 mb-2 mb-md-0">
                                                     <button type="button" id="btn-broadcast-schedule-today" class="btn btn-info btn-block font-weight-bold py-2" <?= !$is_connected ? 'disabled' : '' ?>>
-                                                        <i class="fas fa-sun mr-2"></i>Kirim Jadwal &amp; Pengawas HARI INI ke Grup WA
+                                                        <i class="fas fa-sun mr-2"></i>Kirim Jadwal HARI INI
                                                     </button>
                                                 </div>
-                                                <div class="col-12 col-md-6">
+                                                <div class="col-12 col-md-4 mb-2 mb-md-0">
                                                     <button type="button" id="btn-broadcast-schedule-tomorrow" class="btn btn-primary btn-block font-weight-bold py-2" <?= !$is_connected ? 'disabled' : '' ?>>
-                                                        <i class="fas fa-calendar-day mr-2"></i>Kirim Jadwal &amp; Pengawas BESOK ke Grup WA
+                                                        <i class="fas fa-calendar-day mr-2"></i>Kirim Jadwal BESOK
+                                                    </button>
+                                                </div>
+                                                <div class="col-12 col-md-4">
+                                                    <button type="button" id="btn-open-guru-wa" class="btn btn-outline-dark btn-block font-weight-bold py-2">
+                                                        <i class="fas fa-at mr-2 text-primary"></i>Atur No. WA Pengawas
                                                     </button>
                                                 </div>
                                             </div>
@@ -636,6 +641,58 @@ $has_group = !empty($wa_setting->target_group);
     </div>
 </div>
 
+<!-- Modal Atur Nomor WA Guru Pengawas (Untuk Tag @ di Grup WA) -->
+<div class="modal fade" id="modal-guru-wa" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title font-weight-bold">
+                    <i class="fas fa-at text-warning mr-2"></i>Nomor WhatsApp Guru Pengawas (Auto-Tag di Grup WA)
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2 text-xs mb-3">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Masukkan nomor WhatsApp masing-masing guru (format <code>08...</code> atau <code>628...</code>). Data ini otomatis sinkron dengan kolom <b>No. HP di Data Guru</b> dan digunakan bot untuk men-<b>@tag</b> guru pengawas pada notifikasi jadwal jam 15:00, jam 05:00, maupun perintah <code>!jadwal</code> / <code>!besok</code>.
+                </div>
+                <div class="input-group input-group-sm mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    </div>
+                    <input type="text" id="search-guru-wa" class="form-control" placeholder="Cari nama guru...">
+                </div>
+                <div id="loading-guru-wa" class="text-center py-4 d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2 mb-0">Memuat daftar guru...</p>
+                </div>
+                <div class="table-responsive" id="wrap-guru-wa">
+                    <table class="table table-sm table-bordered table-hover text-sm mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th width="40" class="text-center">No</th>
+                                <th>Nama Guru</th>
+                                <th width="210">Nomor WhatsApp (HP)</th>
+                                <th width="160">Preview Tag WA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-guru-wa"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light d-flex justify-content-between">
+                <small class="text-muted" id="count-guru-wa-ready"></small>
+                <div>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                    <button type="button" class="btn btn-primary font-weight-bold" id="btn-save-guru-wa">
+                        <i class="fas fa-save mr-1"></i>Simpan Semua Nomor WA
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ===================================================================
      JAVASCRIPT LOGIC
      =================================================================== -->
@@ -953,11 +1010,129 @@ $(document).ready(function () {
     }
 
     $('#btn-broadcast-schedule-today').on('click', function () {
-        triggerScheduleBroadcast('today', '#btn-broadcast-schedule-today', '<i class="fas fa-sun mr-2"></i>Kirim Jadwal &amp; Pengawas HARI INI ke Grup WA');
+        triggerScheduleBroadcast('today', '#btn-broadcast-schedule-today', '<i class="fas fa-sun mr-2"></i>Kirim Jadwal HARI INI');
     });
 
     $('#btn-broadcast-schedule-tomorrow').on('click', function () {
-        triggerScheduleBroadcast('tomorrow', '#btn-broadcast-schedule-tomorrow', '<i class="fas fa-calendar-day mr-2"></i>Kirim Jadwal &amp; Pengawas BESOK ke Grup WA');
+        triggerScheduleBroadcast('tomorrow', '#btn-broadcast-schedule-tomorrow', '<i class="fas fa-calendar-day mr-2"></i>Kirim Jadwal BESOK');
+    });
+
+    // Helper normalisasi nomor WA di client untuk live preview tag @628...
+    function normalizeWaClient(raw) {
+        let d = String(raw || '').replace(/[^0-9]/g, '');
+        if (!d) return null;
+        if (d.startsWith('0')) d = '62' + d.substring(1);
+        else if (d.startsWith('8') && d.length >= 9 && d.length <= 13) d = '62' + d;
+        if (!d.startsWith('62') || d.length < 10 || d.length > 15) return null;
+        return '@' + d;
+    }
+
+    function updateGuruWaCounter() {
+        let total = 0, ready = 0;
+        $('#tbody-guru-wa input.input-guru-wa').each(function () {
+            total++;
+            if (normalizeWaClient($(this).val())) ready++;
+        });
+        $('#count-guru-wa-ready').html(`<i class="fas fa-check-circle text-success mr-1"></i><b>${ready}</b> dari <b>${total}</b> guru siap di-tag @ di Grup WA.`);
+    }
+
+    // Buka Modal Atur Nomor WA Pengawas
+    $('#btn-open-guru-wa').on('click', function () {
+        $('#modal-guru-wa').modal('show');
+        $('#search-guru-wa').val('');
+        $('#loading-guru-wa').removeClass('d-none');
+        $('#wrap-guru-wa').addClass('d-none');
+
+        $.ajax({
+            url: base_url + 'cbtwa/get_guru_wa',
+            type: 'GET',
+            dataType: 'json',
+            success: function (res) {
+                $('#loading-guru-wa').addClass('d-none');
+                $('#wrap-guru-wa').removeClass('d-none');
+                const list = (res && Array.isArray(res.data)) ? res.data : [];
+                let html = '';
+                if (list.length === 0) {
+                    html = '<tr><td colspan="4" class="text-center py-4 text-muted">Belum ada data guru di master_guru.</td></tr>';
+                } else {
+                    list.forEach(function (g, idx) {
+                        const safeName = $('<div>').text(g.nama_guru || '').html();
+                        const safeHp = $('<div>').text(g.no_hp || '').html();
+                        const tag = normalizeWaClient(g.no_hp);
+                        const badge = tag
+                            ? `<span class="badge badge-success px-2 py-1">${tag}</span>`
+                            : `<span class="badge badge-light text-muted border">Belum diisi</span>`;
+                        html += `
+                            <tr class="row-guru-wa" data-name="${(g.nama_guru || '').toLowerCase()}">
+                                <td class="text-center align-middle">${idx + 1}</td>
+                                <td class="align-middle font-weight-bold text-dark">${safeName}</td>
+                                <td class="align-middle">
+                                    <input type="text" class="form-control form-control-sm input-guru-wa" data-id="${g.id_guru}" value="${safeHp}" placeholder="0812xxxxxxxx">
+                                </td>
+                                <td class="align-middle preview-tag-cell">${badge}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                $('#tbody-guru-wa').html(html);
+                updateGuruWaCounter();
+            },
+            error: function () {
+                $('#loading-guru-wa').addClass('d-none');
+                $('#wrap-guru-wa').removeClass('d-none');
+                $('#tbody-guru-wa').html('<tr><td colspan="4" class="text-center py-4 text-danger">Gagal memuat daftar guru.</td></tr>');
+            }
+        });
+    });
+
+    $(document).on('input', '.input-guru-wa', function () {
+        const tag = normalizeWaClient($(this).val());
+        const cell = $(this).closest('tr').find('.preview-tag-cell');
+        if (tag) {
+            cell.html(`<span class="badge badge-success px-2 py-1">${tag}</span>`);
+        } else if ($(this).val().trim() !== '') {
+            cell.html(`<span class="badge badge-warning">Format belum valid</span>`);
+        } else {
+            cell.html(`<span class="badge badge-light text-muted border">Belum diisi</span>`);
+        }
+        updateGuruWaCounter();
+    });
+
+    $('#search-guru-wa').on('input', function () {
+        const q = $(this).val().toLowerCase().trim();
+        $('#tbody-guru-wa tr.row-guru-wa').each(function () {
+            const name = $(this).data('name') || '';
+            $(this).toggle(q === '' || name.indexOf(q) !== -1);
+        });
+    });
+
+    $('#btn-save-guru-wa').on('click', function () {
+        const phones = {};
+        $('#tbody-guru-wa input.input-guru-wa').each(function () {
+            phones[$(this).data('id')] = $(this).val().trim();
+        });
+        const btn = $(this);
+        btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i>Menyimpan...');
+
+        $.ajax({
+            url: base_url + 'cbtwa/save_guru_wa',
+            type: 'POST',
+            data: { phones: phones },
+            dataType: 'json',
+            success: function (res) {
+                btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Semua Nomor WA');
+                if (res && res.status) {
+                    $('#modal-guru-wa').modal('hide');
+                    Swal.fire('Tersimpan!', res.message, 'success');
+                } else {
+                    Swal.fire('Gagal!', (res && res.message) || 'Gagal menyimpan nomor WA guru.', 'error');
+                }
+            },
+            error: function () {
+                btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Semua Nomor WA');
+                Swal.fire('Error!', 'Terjadi kesalahan saat menghubungi server.', 'error');
+            }
+        });
     });
 });
 </script>

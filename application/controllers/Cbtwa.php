@@ -294,6 +294,30 @@ class Cbtwa extends CI_Controller {
     }
 
     /**
+     * Ambil daftar nomor WA guru (master_guru.no_hp) untuk keperluan tag @pengawas
+     */
+    public function get_guru_wa() {
+        $list = $this->wa->getAllGuruWaList();
+        $this->output_json(['status' => true, 'data' => $list]);
+    }
+
+    /**
+     * Simpan perubahan nomor WA guru (master_guru.no_hp) secara massal dari modal /cbtwa
+     */
+    public function save_guru_wa() {
+        $phones = $this->input->post('phones', true);
+        if (!is_array($phones)) {
+            $this->output_json(['status' => false, 'message' => 'Data nomor WA guru kosong atau tidak valid']);
+            return;
+        }
+        $count = $this->wa->saveGuruWaNumbers($phones);
+        $this->output_json([
+            'status' => true,
+            'message' => "Berhasil menyimpan nomor WA untuk {$count} data guru. Notifikasi jadwal sekarang otomatis men-tag (@) pengawas yang memiliki nomor WA."
+        ]);
+    }
+
+    /**
      * Cron Scheduler Otomatis Harian (dipanggil oleh cron VPS tiap 5 menit):
      *   - Sore (default 15:00 WIB): kirim jadwal ujian & pengawas BESOK (jika ada jadwal)
      *   - Pagi (default 05:00 WIB): kirim jadwal ujian & pengawas HARI INI + Kode Exambro (jika ada jadwal)

@@ -34,6 +34,7 @@ $(document).ready(function () {
                             if (result.value) {
                                 $("#nama_guru").val("");
                                 $("#nip").val("");
+                                $("#no_hp").val("");
                                 $("#username").val("");
                                 $('#password').val("");
                                 //window.location.href = base_url+'dataguru';
@@ -219,6 +220,7 @@ function preview(action, data, filename) {
 						'        <td>Kode</td>' +
 						'        <td>Username</td>' +
 						'        <td>Password</td>' +
+						'        <td>No. WA / HP</td>' +
 						'        </tr>' +
 						'        </thead>' +
 						'        <tbody>';
@@ -231,6 +233,7 @@ function preview(action, data, filename) {
 							'<td>' + obj[i].kode + '</td>' +
 							'<td>' + obj[i].username + '</td>' +
 							'<td>' + obj[i].password + '</td>' +
+							'<td>' + (obj[i].no_hp || '-') + '</td>' +
 							'</tr>';
 					}
 					html +=  '</tbody></table>';

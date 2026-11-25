@@ -42,7 +42,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
+                            <div class="row mb-3">
                                 <div class="col-md-4 col-sm-offset-4">
                                     <label for="nip">NIP/NUPTK :</label>
                                 </div>
@@ -53,6 +53,20 @@
                                         </div>
                                         <input type="number" id="nip" class="form-control" name="nip" placeholder="NIP"
                                                required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 col-sm-offset-4">
+                                    <label for="no_hp">No. WA / HP :</label>
+                                </div>
+                                <div class="col-md-8 col-sm-offset-8">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text text-success"><i class="fab fa-whatsapp"></i></span>
+                                        </div>
+                                        <input type="tel" id="no_hp" class="form-control" name="no_hp"
+                                               placeholder="Contoh: 081234567890">
                                     </div>
                                 </div>
                             </div>

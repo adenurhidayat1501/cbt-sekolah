@@ -73,11 +73,11 @@ class Guruview extends CI_Controller {
 				'type'		=> 'text'
 			],
 			[
-				'label' 	=> 'No. Handphone',
+				'label' 	=> 'No. Handphone / WhatsApp',
 				'name'		=> 'no_hp',
 				'value'		=> $guru->no_hp,
-				'icon'		=> 'fa fa-phone',
-				'type'		=> 'number'
+				'icon'		=> 'fab fa-whatsapp',
+				'type'		=> 'tel'
 			],
 			[
 				'label' 	=> 'Agama',
@@ -193,12 +193,14 @@ class Guruview extends CI_Controller {
 			];
 			$this->output_json($data);
 		} else {
+			@$this->db->query("ALTER TABLE `master_guru` MODIFY COLUMN `no_hp` varchar(20) NULL DEFAULT NULL");
+			$clean_hp = substr(preg_replace('/[^0-9+]/', '', trim((string) ($no_hp ?? ''))), 0, 20);
 			$input = [
 				'nip'			=> $nip,
 				'nama_guru' 	=> $nama_guru,
 				'email' 		=> $email,
 				'jenis_kelamin' => $jenis_kelamin,
-				'no_hp'			=> $no_hp,
+				'no_hp'			=> $clean_hp,
 				'agama'			=> $agama,
 				'no_ktp'		=> $no_ktp,
 				'tempat_lahir'	=> $tempat_lahir,

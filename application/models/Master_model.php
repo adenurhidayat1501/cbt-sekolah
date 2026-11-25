@@ -425,7 +425,7 @@ class Master_model extends CI_Model {
 
     public function getAllDataGuru($tp, $smt) {
         $this->db->query('SET SQL_BIG_SELECTS=1');
-        $this->db->select('a.id_guru, a.nama_guru, a.nip, a.kode_guru, a.jenis_kelamin, a.foto, b.id_jabatan, b.id_kelas, b.mapel_kelas, b.ekstra_kelas, c.id_level, c.level, d.nama_kelas, e.tahun, f.nama_smt, (SELECT COUNT(id) FROM users e WHERE e.username = a.username) AS status');
+        $this->db->select('a.id_guru, a.nama_guru, a.nip, a.kode_guru, a.jenis_kelamin, a.no_hp, a.foto, b.id_jabatan, b.id_kelas, b.mapel_kelas, b.ekstra_kelas, c.id_level, c.level, d.nama_kelas, e.tahun, f.nama_smt, (SELECT COUNT(id) FROM users e WHERE e.username = a.username) AS status');
         $this->db->from('master_guru a');
         $this->db->join('jabatan_guru b', 'a.id_guru=b.id_guru AND b.id_tp='.$tp.' AND b.id_smt='.$smt.'', 'left');
         $this->db->join('level_guru c', 'b.id_jabatan=c.id_level', 'left');

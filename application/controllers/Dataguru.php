@@ -150,11 +150,11 @@ class Dataguru extends CI_Controller
                 'type'		=> 'text'
             ],
             [
-                'label' 	=> 'No. Handphone',
+                'label' 	=> 'No. Handphone / WhatsApp',
                 'name'		=> 'no_hp',
                 'value'		=> $guru->no_hp,
-                'icon'		=> 'fa fa-phone',
-                'type'		=> 'number'
+                'icon'		=> 'fab fa-whatsapp',
+                'type'		=> 'tel'
             ],
             [
                 'label' 	=> 'Agama',
@@ -238,6 +238,8 @@ class Dataguru extends CI_Controller
         $nama_guru  = $this->input->post('nama_guru', true);
         $username 	= $this->input->post('username', true);
         $password 	= $this->input->post('password', true);
+        $no_hp      = preg_replace('/[^0-9+]/', '', trim((string) ($this->input->post('no_hp', true) ?? '')));
+        $no_hp      = substr($no_hp, 0, 20);
 
         $u_nip = 'is_unique[master_guru.nip]';
         $u_username = '|is_unique[master_guru.username]';
@@ -259,11 +261,13 @@ class Dataguru extends CI_Controller
             ];
             $this->output_json($data);
         } else {
+            @$this->db->query("ALTER TABLE `master_guru` MODIFY COLUMN `no_hp` varchar(20) NULL DEFAULT NULL");
             $input = [
                 'nip'			=> trim($nip ?? ''),
                 'nama_guru' 	=> trim($nama_guru ?? ''),
                 'username' 		=> trim($username ?? ''),
                 'password'      => trim($password ?? ''),
+                'no_hp'         => $no_hp,
                 'foto' 		    => 'uploads/profiles/'.trim($nip ?? '00').'.jpg'
             ];
 
@@ -275,6 +279,28 @@ class Dataguru extends CI_Controller
                 $this->output_json(['status' => false]);
             }
         }
+    }
+
+    /**
+     * Update cepat Nomor HP / WhatsApp guru langsung dari halaman daftar Data Guru
+     */
+    public function updateNoHp() {
+        $id_guru = intval($this->input->post('id_guru', true));
+        $no_hp   = preg_replace('/[^0-9+]/', '', trim((string) ($this->input->post('no_hp', true) ?? '')));
+        $no_hp   = substr($no_hp, 0, 20);
+
+        if ($id_guru <= 0) {
+            $this->output_json(['status' => false, 'message' => 'ID guru tidak valid']);
+            return;
+        }
+
+        @$this->db->query("ALTER TABLE `master_guru` MODIFY COLUMN `no_hp` varchar(20) NULL DEFAULT NULL");
+        $ok = $this->db->where('id_guru', $id_guru)->update('master_guru', ['no_hp' => $no_hp]);
+        $this->output_json([
+            'status'  => (bool) $ok,
+            'no_hp'   => $no_hp,
+            'message' => $ok ? 'Nomor WA guru berhasil disimpan' : 'Gagal menyimpan nomor WA guru'
+        ]);
     }
 
     public function save() {
@@ -515,6 +541,7 @@ class Dataguru extends CI_Controller
                         'kode' => trim((string)($sheetData[$i][3] ?? '')),
                         'username' => trim((string)($sheetData[$i][4] ?? '')),
                         'password' => trim((string)($sheetData[$i][5] ?? '')),
+                        'no_hp' => preg_replace('/[^0-9+]/', '', trim((string)($sheetData[$i][6] ?? ''))),
                     ];
                 }
             }
@@ -575,7 +602,8 @@ class Dataguru extends CI_Controller
                             'nip'       => $nip,
                             'kode'      => $cols->item(3) ? trim($cols->item(3)->nodeValue) : '',
                             'username'  => $cols->item(4) ? trim($cols->item(4)->nodeValue) : '',
-                            'password'  => $cols->item(5) ? trim($cols->item(5)->nodeValue) : ''
+                            'password'  => $cols->item(5) ? trim($cols->item(5)->nodeValue) : '',
+                            'no_hp'     => $cols->item(6) ? preg_replace('/[^0-9+]/', '', trim($cols->item(6)->nodeValue)) : ''
                         ];
                     }
                 }
@@ -667,15 +695,18 @@ class Dataguru extends CI_Controller
 	public function do_import()
 	{
         $this->load->model('Master_model', 'master');
+        @$this->db->query("ALTER TABLE `master_guru` MODIFY COLUMN `no_hp` varchar(20) NULL DEFAULT NULL");
 		$input = json_decode($this->input->post('guru', true));
 		$data = [];
 		foreach ($input as $d) {
+            $hp = preg_replace('/[^0-9+]/', '', trim((string) ($d->no_hp ?? '')));
 			$data[] = [
                 'nama_guru' => trim($d->nama ?? ''),
 				'nip' => trim($d->nip ?? ''),
 				//'kode_guru' => trim($d->kode ?? ''),
                 'username' => trim($d->username ?? ''),
 				'password' => trim($d->password ?? ''),
+                'no_hp' => substr($hp, 0, 20),
                 'foto' => 'uploads/profiles/'.trim($d->nip ?? '00').'.jpg'
 			];
 		}
