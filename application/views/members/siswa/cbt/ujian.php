@@ -215,14 +215,23 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
             var siswa = $('#up').find('input[name="siswa"]').val();
             var bank = $('#up').find('input[name="bank"]').val();
+            var jadwal = $('#up').find('input[name="jadwal"]').val();
+            var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+            var csrfVal = $('#up').find('input[name="' + csrfName + '"]').val() || '<?= $this->security->get_csrf_hash() ?>';
 
             let formData = new FormData($('#jawab')[0]);
-            formData.append('siswa', siswa);
-            formData.append('bank', bank);
-            formData.append('data', JSON.stringify(jsonJawaban));
+            formData.set('siswa', siswa);
+            formData.set('bank', bank);
+            formData.set('jadwal', jadwal);
+            formData.set('elapsed', elapsed);
+            formData.set(csrfName, csrfVal);
+            formData.set('data', JSON.stringify(jsonJawaban));
+
+            var currentSoalId = idSoal;
+            var currentPayload = $.extend(true, {}, jsonJawaban);
 
             // Backup answer to browser LocalStorage immediately (Dual Storage Resilience)
-            saveAnswerLocally(idSoal, jsonJawaban);
+            saveAnswerLocally(currentSoalId, currentPayload);
 
             $.ajax({
                 url: base_url + 'siswa/savejawaban',
@@ -231,14 +240,23 @@ defined('BASEPATH') or exit('No direct script access allowed');
                 contentType: false,
                 data: formData,
                 success: function (response) {
-                    soalTerjawab = response.soal_terjawab;
-                    removeAnswerFromOfflineQueue(idSoal);
-                    setOnlineStatus(true);
-                    loadSoalNomor(nav);
+                    if (response && response.status === true) {
+                        if (typeof response.soal_terjawab !== 'undefined') {
+                            soalTerjawab = response.soal_terjawab;
+                        }
+                        removeAnswerFromOfflineQueue(currentSoalId);
+                        setOnlineStatus(true);
+                        loadSoalNomor(nav);
+                    } else {
+                        queueAnswerOffline(currentSoalId, currentPayload, siswa, bank);
+                        setOnlineStatus(false);
+                        showWarningToast((response && response.message) ? response.message : 'Jawaban belum tersimpan di server, diamankan sementara di perangkat.');
+                        loadSoalNomor(nav);
+                    }
                 },
                 error: function (xhr, error, status) {
                     // Queue for auto-sync without halting or locking the student screen
-                    queueAnswerOffline(idSoal, jsonJawaban, siswa, bank);
+                    queueAnswerOffline(currentSoalId, currentPayload, siswa, bank);
                     setOnlineStatus(false);
                     loadSoalNomor(nav);
                 }
@@ -301,13 +319,66 @@ defined('BASEPATH') or exit('No direct script access allowed');
                     $('#loading').addClass('d-none');
                     setKonten(data);
                 }, error: function (xhr, error, status) {
-                    showDangerToast('ERROR!');
+                    $('#loading').addClass('d-none');
+                    $('#next').removeAttr('disabled');
+                    if (nomorSoal > 1) {
+                        $('#prev').removeAttr('disabled');
+                    }
+                    showDangerToast('Gagal memuat soal, silakan coba lagi!');
                     console.log(xhr.responseText);
                 }
             });
         } else {
             selesai();
         }
+    }
+
+    function syncJawabanDariDom() {
+        if (jenisSoal == 1) {
+            var checkedRadio = $('#konten-jawaban input[type="radio"][name="jawaban"]:checked');
+            if (checkedRadio.length > 0 && jawabanBaru === null) {
+                var valDom = checkedRadio.data('jawabansiswa');
+                if (String(valDom).toUpperCase() !== String(jawabanSiswa || '').toUpperCase()) {
+                    submitJawaban(checkedRadio[0]);
+                }
+            }
+        } else if (jenisSoal == 2) {
+            var selected = [];
+            $('#konten-jawaban input[type="checkbox"]:checked').each(function () {
+                selected.push($(this).val());
+            });
+            selected.sort();
+            var serverArr = $.isArray(jawabanSiswa) ? jawabanSiswa.slice().sort() : [];
+            if (JSON.stringify(selected) !== JSON.stringify(serverArr) && jawabanBaru === null) {
+                jawabanBaru = selected;
+                jsonJawaban = createJsonJawaban('', selected);
+            }
+        } else if (jenisSoal == 4 || jenisSoal == 5) {
+            var essaiEl = $('#jawaban-essai');
+            if (essaiEl.length > 0) {
+                var valEssai = essaiEl.val();
+                if (valEssai !== jawabanSiswa) {
+                    submitJawaban(null);
+                }
+            }
+        }
+    }
+
+    function hasUnsavedAnswer() {
+        syncJawabanDariDom();
+        var jwb1 = jawabanSiswa;
+        var jwb2 = jawabanBaru;
+        if ($.isArray(jwb1) || jwb1 instanceof jQuery) {
+            jwb1 = JSON.stringify(jwb1);
+        }
+        if (jwb2 != null && ($.isArray(jwb2) || jwb2 instanceof jQuery)) {
+            jwb2 = JSON.stringify(jwb2);
+        }
+        if (jenisSoal == 1) {
+            jwb1 = String(jwb1 || '').toUpperCase();
+            jwb2 = jwb2 != null ? String(jwb2).toUpperCase() : null;
+        }
+        return jawabanBaru != null && jwb1 !== jwb2 && jsonJawaban && jsonJawaban.id_soal_siswa;
     }
 
     function loadSoal(datas) {
@@ -317,16 +388,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
         });
 
         nav = $(datas).data('nomorsoal');
-        var jwb1 = jawabanSiswa;
-        var jwb2 = jawabanBaru;
-        if ($.isArray(jwb1) || jwb1 instanceof jQuery) {
-            jwb1 = JSON.stringify(jwb1)
-        }
-        if (jwb2 != null && ($.isArray(jwb2) || jwb2 instanceof jQuery)) {
-            jwb2 = JSON.stringify(jwb2)
-        }
-
-        if (jawabanBaru != null && jwb1 !== jwb2) {
+        if (hasUnsavedAnswer()) {
+            $('#loading').removeClass('d-none');
             $('#jawab').submit();
         } else {
             loadSoalNomor(nav);
@@ -345,15 +408,15 @@ defined('BASEPATH') or exit('No direct script access allowed');
         jsonJawaban = {};
         jawabanBaru = null;
         jawabanSiswa = data.soal_jawaban_siswa != null ? data.soal_jawaban_siswa : '';
-        
-        // Recover from LocalStorage cache if server answer is currently empty
-        var localCached = getLocalAnswer(idSoal);
-        if ((!jawabanSiswa || ($.isArray(jawabanSiswa) && jawabanSiswa.length === 0) || jawabanSiswa === '') && localCached) {
-            if (localCached.jawaban_siswa) {
-                jawabanSiswa = localCached.jawaban_siswa;
-            }
-        }
         if ($.isArray(jawabanSiswa)) jawabanSiswa.sort();
+
+        // Check LocalStorage cache ONLY if server answer is empty (do NOT overwrite jawabanSiswa,
+        // so clicking Next/Prev will still persist the recovered answer to the server)
+        var localCached = getLocalAnswer(idSoal);
+        var serverKosong = (!jawabanSiswa || ($.isArray(jawabanSiswa) && jawabanSiswa.length === 0) || jawabanSiswa === '');
+        var recoveredVal = (serverKosong && localCached && localCached.id_soal_siswa == idSoalSiswa && localCached.jawaban_siswa !== undefined && localCached.jawaban_siswa !== null && localCached.jawaban_siswa !== '')
+            ? localCached.jawaban_siswa
+            : null;
 
         if (nomorSoal === 1) {
             $('#prev').attr('disabled', 'disabled');
@@ -368,34 +431,52 @@ defined('BASEPATH') or exit('No direct script access allowed');
         if (jenis == "1") {
             $.each(data.soal_opsi, function (key, opsis) {
                 if (opsis.valAlias != "") {
-                    var isSelected = (opsis.checked && opsis.checked.trim() !== '') ? ' selected-card' : '';
+                    var valUpper = opsis.value.toUpperCase();
+                    var checkedAttr = opsis.checked;
+                    if ((!checkedAttr || checkedAttr.trim() === '') && recoveredVal && String(recoveredVal).toUpperCase() === valUpper) {
+                        checkedAttr = 'checked';
+                    }
+                    var isSelected = (checkedAttr && checkedAttr.trim() !== '') ? ' selected-card' : '';
                     html += '<label class="container-jawaban font-weight-normal' + isSelected + '">' + opsis.opsi +
                         '<input type="radio"' +
                         ' name="jawaban"' +
-                        ' value="' + opsis.value.toUpperCase() + '"' +
-                        ' data-jawabansiswa="' + opsis.value.toUpperCase() + '"' +
+                        ' value="' + valUpper + '"' +
+                        ' data-jawabansiswa="' + valUpper + '"' +
                         ' data-jawabanalias="' + opsis.valAlias.toUpperCase() + '"' +
-                        ' onclick="submitJawaban(this)" ' + opsis.checked + '>' +
+                        ' onclick="submitJawaban(this)" onchange="submitJawaban(this)" ' + checkedAttr + '>' +
                         '<span class="checkmark shadow text-center align-middle">' + opsis.valAlias.toUpperCase() + '</span>' +
                         '</label>';
                 }
             });
             $('#konten-jawaban').html(html);
+            if (recoveredVal) {
+                var recRadio = $('#konten-jawaban input[type="radio"]:checked');
+                if (recRadio.length > 0) submitJawaban(recRadio[0]);
+            }
         } else if (jenis == "2") {
             $.each(data.soal_opsi, function (key, opsis) {
+                var valUpper = opsis.value.toUpperCase();
+                var checkedAttr = opsis.checked;
+                if ((!checkedAttr || checkedAttr.trim() === '') && $.isArray(recoveredVal) && recoveredVal.indexOf(valUpper) !== -1) {
+                    checkedAttr = 'checked="true"';
+                }
                 html += '<div class="custom-control custom-checkbox checkbox-xl">' +
                     '<input type="checkbox" class="check2 custom-control-input"' +
                     'id="check'+key+'"' +
                     ' name="jawaban"' +
-                    ' value="' + opsis.value.toUpperCase() + '"' +
+                    ' value="' + valUpper + '"' +
                     ' data-max="' + data.max_jawaban[0] + '"' +
-                    ' data-jawabansiswa="' + opsis.value.toUpperCase() + '"' +
-                    ' onclick="submitJawaban(this)" ' + opsis.checked + '>' +
+                    ' data-jawabansiswa="' + valUpper + '"' +
+                    ' onclick="submitJawaban(this)" onchange="submitJawaban(this)" ' + checkedAttr + '>' +
                     '<label class="custom-control-label font-weight-normal" for="check'+key+'">'
                     + opsis.opsi +'</label>' +
                     '</div>'
             });
             $('#konten-jawaban').html(html);
+            if ($.isArray(recoveredVal) && recoveredVal.length > 0) {
+                var recCb = $('#konten-jawaban input[type="checkbox"]:checked').first();
+                if (recCb.length > 0) submitJawaban(recCb[0]);
+            }
         } else if (jenis == "3") {
             modelSoal = data.soal_opsi.model;
             typeSoal = data.soal_opsi.type;
@@ -462,23 +543,29 @@ defined('BASEPATH') or exit('No direct script access allowed');
                 }
             });
         } else if (jenis == "4") {
+            var valIsian = recoveredVal !== null ? recoveredVal : jawabanSiswa;
             html += '<div class="pr-4">' +
                 '<span class="">JAWABAN:</span><br>' +
                 '<div class="row"><div class="col-12 col-sm-8 col-md-6 col-lg-4 col-xl-4">'+
                 '<input id="jawaban-essai" class="pl-1 form-control" type="text"' +
-                ' name="jawaban" value="' + jawabanSiswa + '"' +
+                ' name="jawaban"' +
                 ' placeholder="Tulis jawaban disini"/><br>' +
                 '</div></div>' +
                 '</div>';
             $('#konten-jawaban').html(html);
+            $('#jawaban-essai').val(valIsian);
+            if (recoveredVal !== null) submitJawaban(null);
         } else {
+            var valEssai = recoveredVal !== null ? recoveredVal : jawabanSiswa;
             html += '<div class="pr-4">' +
                 '<label>JAWABAN:</label><br>' +
                 '<textarea id="jawaban-essai" class="w-100 pl-1" type="text"' +
                 ' name="jawaban" rows="4"' +
-                ' placeholder="Tulis jawaban disini">' + jawabanSiswa + '</textarea><br>' +
+                ' placeholder="Tulis jawaban disini"></textarea><br>' +
                 '</div>';
             $('#konten-jawaban').html(html);
+            $('#jawaban-essai').val(valEssai);
+            if (recoveredVal !== null) submitJawaban(null);
         }
 
         $('#konten-modal').html(data.soal_modal);
@@ -526,7 +613,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
             }
         });
 
-        $("#jawaban-essai").on('change keyup paste', function () {
+        $("#jawaban-essai").on('input change keyup paste', function () {
             submitJawaban(null);
         });
         if (!data.durasi) {
@@ -576,11 +663,12 @@ defined('BASEPATH') or exit('No direct script access allowed');
                 var bank = $('#up').find('input[name="bank"]').val();
                 var jadwal = $('#up').find('input[name="jadwal"]').val();
 
+                syncJawabanDariDom();
                 $.ajax({
                     url: base_url + 'siswa/savejawaban',
                     method: 'POST',
                     data: $('#jawab').serialize() + '&jadwal=' + jadwal + '&siswa=' + siswa + '&bank=' + bank +
-                        '&waktu=' + $('#timer').text() + '&elapsed=' + elapsed + '&data=' + JSON.stringify(jsonJawaban),
+                        '&waktu=' + encodeURIComponent($('#timer').text()) + '&elapsed=' + encodeURIComponent(elapsed) + '&data=' + encodeURIComponent(JSON.stringify(jsonJawaban)),
                     success: function (response) {
                         $('.konten-soal-jawab').html('');
                         dialogWaktu();
@@ -597,16 +685,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
         $('#next').attr('disabled', 'disabled');
         $('#loading').removeClass('d-none');
         nav = (nomorSoal + 1);
-        var jwb1 = jawabanSiswa;
-        var jwb2 = jawabanBaru;
-        if ($.isArray(jwb1) || jwb1 instanceof jQuery) {
-            jwb1 = JSON.stringify(jwb1)
-        }
-        if (jwb2 != null && ($.isArray(jwb2) || jwb2 instanceof jQuery)) {
-            jwb2 = JSON.stringify(jwb2)
-        }
-
-        if (jawabanBaru != null && jwb1 !== jwb2) {
+        if (hasUnsavedAnswer()) {
             $('#jawab').submit();
         } else {
             loadSoalNomor(nav);
@@ -667,16 +746,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
         $('#prev').attr('disabled', 'disabled');
         $('#loading').removeClass('d-none');
         nav = (nomorSoal - 1);
-        var jwb1 = jawabanSiswa;
-        var jwb2 = jawabanBaru;
-        if ($.isArray(jwb1) || jwb1 instanceof jQuery) {
-            jwb1 = JSON.stringify(jwb1)
-        }
-        if (jwb2 != null && ($.isArray(jwb2) || jwb2 instanceof jQuery)) {
-            jwb2 = JSON.stringify(jwb2)
-        }
-
-        if (jawabanBaru != null && jwb1 !== jwb2) {
+        if (hasUnsavedAnswer()) {
             $('#jawab').submit();
         } else {
             loadSoalNomor(nav);
@@ -1257,15 +1327,23 @@ defined('BASEPATH') or exit('No direct script access allowed');
         var queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
         if (!queue || queue.length === 0) return;
 
+        var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+        var csrfVal = $('#up').find('input[name="' + csrfName + '"]').val() || '<?= $this->security->get_csrf_hash() ?>';
+
         var itemsToSync = queue.slice();
         var syncCount = 0;
 
         itemsToSync.forEach(function (item) {
             var fd = new FormData();
+            fd.append(csrfName, csrfVal);
             fd.append('siswa', item.siswa);
             fd.append('bank', item.bank);
             fd.append('jadwal', item.jadwal);
+            fd.append('elapsed', elapsed);
             fd.append('data', JSON.stringify(item.data));
+            if (item.data && (item.data.jenis == 4 || item.data.jenis == 5)) {
+                fd.append('jawaban', item.data.jawaban_siswa != null ? item.data.jawaban_siswa : '');
+            }
 
             $.ajax({
                 url: base_url + 'siswa/savejawaban',
@@ -1273,11 +1351,16 @@ defined('BASEPATH') or exit('No direct script access allowed');
                 processData: false,
                 contentType: false,
                 data: fd,
-                success: function () {
-                    removeAnswerFromOfflineQueue(item.soalId);
-                    syncCount++;
-                    if (syncCount === itemsToSync.length) {
-                        showSuccessToast('Semua jawaban offline (' + syncCount + ') berhasil disinkronkan ke server!');
+                success: function (response) {
+                    if (response && response.status === true) {
+                        if (typeof response.soal_terjawab !== 'undefined') {
+                            soalTerjawab = response.soal_terjawab;
+                        }
+                        removeAnswerFromOfflineQueue(item.soalId);
+                        syncCount++;
+                        if (syncCount === itemsToSync.length) {
+                            showSuccessToast('Semua jawaban offline (' + syncCount + ') berhasil disinkronkan ke server!');
+                        }
                     }
                 }
             });

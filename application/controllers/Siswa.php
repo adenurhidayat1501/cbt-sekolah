@@ -4,6 +4,9 @@
  * User: multazam
  * Date: 07/07/20
  * Time: 14:10
+ *
+ * @property CI_User_agent $agent
+ * @property Exambro_model $exambro
  */
 
 class Siswa extends CI_Controller
@@ -186,6 +189,7 @@ class Siswa extends CI_Controller
         $data['id_kelas'] = $siswa->id_kelas;
         $jadm = $this->kelas->getJadwalMapelGroupJam($tp->id_tp, $smt->id_smt, $siswa->id_kelas);
         $jml_mapel = $jadk == null ? 1 : $jadk->kbm_jml_mapel_hari;
+        $jadwal_mapel = [];
         if ($jadm == null) {
             for ($i = 0; $i < $jml_mapel; $i++) {
                 $jadwal_mapel[] = [
@@ -616,6 +620,7 @@ class Siswa extends CI_Controller
 
     function uploadFile()
     {
+        $data = ['status' => false];
         $max_size = $this->input->post('max-size', true);
         if (isset($_FILES["file_uploads"]["name"])) {
             $config['upload_path'] = './uploads/file_siswa/';
@@ -1301,8 +1306,9 @@ class Siswa extends CI_Controller
         } elseif ($item_soal->jenis_soal == '2') {
             $max_jawaban = [count(array_filter((unserialize($item_soal->jawaban ?? ''))))];
             $item_soal->opsi_a = unserialize($item_soal->opsi_a ?? '');
-            $item_soal->jawaban_siswa = unserialize($item_soal->jawaban_siswa ?? '');
-            $jwbSiswa = $item_soal->jawaban_siswa != null ? $item_soal->jawaban_siswa : [];
+            $unserialized_jwb = @unserialize($item_soal->jawaban_siswa ?? '');
+            $item_soal->jawaban_siswa = is_array($unserialized_jwb) ? $unserialized_jwb : [];
+            $jwbSiswa = $item_soal->jawaban_siswa;
             $opsis = [];
             foreach ($item_soal->opsi_a as $key=>$opsi) {
                 $item = [
@@ -1574,33 +1580,39 @@ class Siswa extends CI_Controller
         }
 
         $id_durasi = $id_siswa .'0'. $id_jadwal;
-        if ($elapsed != '0') {
+        if ($elapsed !== null && $elapsed !== '' && $elapsed != '0') {
             $this->db->set('lama_ujian', $elapsed);
             $this->db->where('id_durasi', $id_durasi);
             $this->db->update('cbt_durasi_siswa');
         }
 
-        $update = true;
+        $update = false;
         $jawab = json_decode($this->input->post('data', false));
-        if ($jawab != null && isset($jawab->jenis)) {
+        if ($jawab != null && isset($jawab->jenis) && !empty($jawab->id_soal_siswa)) {
             if ($jawab->jenis == 1) {
-                $this->db->set('jawaban_alias', $jawab->jawaban_alias);
-                $this->db->set('jawaban_siswa', $jawab->jawaban_siswa);
+                $this->db->set('jawaban_alias', $jawab->jawaban_alias ?? '');
+                $this->db->set('jawaban_siswa', $jawab->jawaban_siswa ?? '');
             } elseif ($jawab->jenis == 2) {
                 $this->db->set('jawaban_alias', '');
-                $this->db->set('jawaban_siswa', serialize($jawab->jawaban_siswa));
+                $this->db->set('jawaban_siswa', serialize($jawab->jawaban_siswa ?? []));
             } elseif ($jawab->jenis == 3) {
                 $this->db->set('jawaban_alias', '');
                 $this->db->set('jawaban_siswa', serialize($jawab->jawaban_siswa));
             } else {
                 $jawab_essai = $this->input->post('jawaban', false);
+                if ($jawab_essai === null && isset($jawab->jawaban_siswa)) {
+                    $jawab_essai = $jawab->jawaban_siswa;
+                }
                 $this->db->set('jawaban_alias', '');
-                $this->db->set('jawaban_siswa', $jawab_essai);
+                $this->db->set('jawaban_siswa', $jawab_essai ?? '');
             }
             $this->db->where('id_soal_siswa', $jawab->id_soal_siswa);
             $this->db->where('id_siswa', $id_siswa);
             $update = $this->db->update('cbt_soal_siswa');
             //sleep(1);
+        } elseif ($timer != null) {
+            // Waktu habis tanpa perubahan jawaban baru pada soal terakhir
+            $update = true;
         }
         $data['status'] = $update;
 
@@ -2148,6 +2160,7 @@ class Siswa extends CI_Controller
                             //$soal[3][$ks]->tabel_soal = $arrJwbSoal;
 
                             $arrJawab = [];
+                            $headJawab = [];
                             if (isset($jawab_jod->jawaban_siswa->jawaban)) {
                                 $arrJawab = $jawab_jod->jawaban_siswa->jawaban;
                                 $headJawab = array_shift($arrJawab);

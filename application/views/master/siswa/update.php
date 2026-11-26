@@ -1,3 +1,10 @@
+<?php
+/**
+ * @var string $subjudul
+ * @var array $kelas
+ * @var string $tipe
+ */
+?>
 <div class="content-wrapper bg-white pt-4">
     <section class="content-header">
         <div class="container-fluid">
@@ -252,6 +259,7 @@
     }
 
     function createTable(list, selector) {
+        $(selector).html('');
         let cols = Headers(list.header, selector);
         let len = list.rows.length;
         if (list.rows.length > 50) len = 50;
@@ -275,10 +283,12 @@
             dataSiswa = new FormData($('#formUpload')[0])
             list.rows.forEach(function (siswa, ind) {
                 for (const key in siswa) {
-                    let k = key.split('(')[0];
-                    k = k.split('/')[0]
-                    k = k.split('1')[0]
-                    dataSiswa.append('siswa['+ind+']['+k.trim()+']', siswa[key])
+                    if (key && key !== 'no') {
+                        let k = key.split('(')[0];
+                        k = k.split('/')[0]
+                        k = k.split('1')[0]
+                        dataSiswa.append('siswa['+ind+']['+k.trim()+']', siswa[key])
+                    }
                 }
             })
         } else {
@@ -386,13 +396,42 @@
     }
 
     async function downloadTemplate(kls, res) {
-        const response = await fetch(base_url + 'uploads/import/format/format_update_siswa.xlsx')
-        const arrayBuffer = await response.arrayBuffer()
-        const excelTemplate = await JsExcelTemplate.fromArrayBuffer(arrayBuffer)
-        excelTemplate.set("siswa", res.siswa);
+        try {
+            if (!res || !Array.isArray(res.siswa) || res.siswa.length === 0) {
+                swal.fire({
+                    title: "Info",
+                    text: `Tidak ada data siswa di kelas ${kls}`,
+                    icon: "info"
+                });
+                return;
+            }
 
-        const blob = await excelTemplate.toBlob()
-        saveAs(blob, `Update Data Siswa ${kls}.xlsx`);
+            const siswaList = res.siswa.map(item => {
+                const clean = {};
+                Object.keys(item).forEach(key => {
+                    clean[key] = item[key] === null || item[key] === undefined ? '' : item[key];
+                });
+                return clean;
+            });
+
+            const response = await fetch(base_url + 'uploads/import/format/format_update_siswa.xlsx', { cache: 'no-cache' });
+            if (!response.ok) {
+                throw new Error(`File template tidak ditemukan (HTTP ${response.status})`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            const excelTemplate = await JsExcelTemplate.fromArrayBuffer(arrayBuffer);
+            excelTemplate.set("siswa", siswaList);
+
+            const blob = await excelTemplate.toBlob();
+            saveAs(blob, `Update Data Siswa ${kls}.xlsx`);
+        } catch (err) {
+            console.error("downloadTemplate error:", err);
+            swal.fire({
+                title: "Error",
+                text: "Gagal mengunduh template update data siswa: " + (err && err.message ? err.message : err),
+                icon: "error"
+            });
+        }
     }
 
     function download(btn) {
@@ -409,10 +448,14 @@
                 downloadTemplate(kls, result)
             }, error: function (xhr, status, error) {
                 console.log("error", xhr.responseText);
-                const err = JSON.parse(xhr.responseText)
+                let msg = error || "Gagal mengambil data siswa";
+                try {
+                    const err = JSON.parse(xhr.responseText);
+                    msg = err.Message || err.message || msg;
+                } catch (e) {}
                 swal.fire({
                     title: "Error",
-                    text: err.Message,
+                    text: msg,
                     icon: "error"
                 });
             }

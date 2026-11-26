@@ -79,7 +79,7 @@ class Cbt_model extends CI_Model {
 
     public function getDataSiswa($username, $id_tp, $id_smt) {
         $this->db->select('a.id_siswa, a.nisn, a.nis, a.nama, a.jenis_kelamin, a.username, a.password, a.agama, a.foto,'.
-            ' b.id_kelas_siswa, b.id_tp, b.id_smt, b.id_siswa, b.id_kelas,'.
+            ' b.id_kelas_siswa, b.id_tp, b.id_smt, b.id_kelas,'.
             ' c.nama_kelas, c.kode_kelas, c.level_id, '.
             ' d.kelas_id, d.ruang_id, d.sesi_id');
         $this->db->from('master_siswa a');
